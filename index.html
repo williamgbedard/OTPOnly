@@ -650,13 +650,6 @@ function getDynamicPlBounds(key, hIdx) {
   return levels;
 }
 
-// ── Get surface (10m) wind directly ───────────────────────
-function getSfcWind(key, hIdx) {
-  const data = cache[key];
-  if (!data || data.error) return null;
-  return getRawWind(data, { hpa: null, ft: 0 }, hIdx);
-}
-
 // ── Interpolate wind at arbitrary altitude for one airport ─
 // Uses linear interpolation of speed and circular interp of direction
 // between the two surrounding pressure levels.
@@ -918,7 +911,7 @@ function renderWindRow(wp, w, loading, legTrack) {
   const spd = w?.spd ?? null;
   const dir = w?.dir ?? null;
   const rot = dir != null ? dir - legTrack + 180 : 0;
-  const windStr = loading ? '…' : (spd != null ? `${dir != null ? fmtDir(dir) + ' / ' : ''}${fmtSpd(spd)} kt` : '—');
+  const windStr = loading ? '…' : (dir != null ? `${fmtDir(dir)} / ${fmtSpd(spd)} kt` : '—');
   return `<div class="leg-row">
     <div class="lr-icao">${wp.icao}</div>
     <div class="lr-name">${wp.name ?? ''}</div>
@@ -1054,10 +1047,7 @@ function renderLegs() {
     if (isExpanded) {
       html += `<div class="leg-rows">`;
 
-      // Departure: surface wind + cruise altitude wind
-      const wDepSfc = getSfcWind(dep.icao, hIdx);
-      html += renderWindRow(dep, wDepSfc, depLoading, legTrack);
-      html += renderWindRow({icao: '', name: ''}, wDep, depLoading, legTrack);
+      html += renderWindRow(dep, wDep, depLoading, legTrack);
 
       // Midpoints along the leg (for legs > 150 nm)
       if (legDist > 150) {
@@ -1074,10 +1064,7 @@ function renderLegs() {
         });
       }
 
-      // Arrival: cruise altitude wind + surface wind
-      html += renderWindRow({icao: '', name: ''}, wArr, arrLoading, legTrack);
-      const wArrSfc = getSfcWind(arr.icao, hIdx);
-      html += renderWindRow(arr, wArrSfc, arrLoading, legTrack);
+      html += renderWindRow(arr, wArr, arrLoading, legTrack);
 
       html += `</div>`;
     }
