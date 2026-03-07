@@ -772,26 +772,39 @@ function offsetHIdx(hIdx, hours) {
   return Math.max(0, Math.min(71, Math.round(hIdx + hours)));
 }
 
-function timeToHourlyIdx(depTime) {
-  const key = depTime ?? '__now__';
-  // Only cache non-"now" lookups (now changes every minute, depTime is static)
-  if (depTime && _hIdxCache[key] != null) return _hIdxCache[key];
+function timeToHourlyIdx(depTime, schedDate) {
+  // schedDate: optional Date object for the schedule day (UTC midnight).
+  // If provided, times are anchored to that date rather than today.
   const now = new Date();
-  if (!depTime) {
-    return now.getUTCHours();
-  }
-  const [hh, mm] = depTime.split(':').map(Number);
-  // Build a Date for today at that UTC hour
-  const target = new Date(now);
-  target.setUTCHours(hh, mm, 0, 0);
-  // If time is in the past (more than 30 min), assume tomorrow UTC
-  if (target < now - 30 * 60000) target.setUTCDate(target.getUTCDate() + 1);
-  // Open-Meteo hourly[0] = midnight UTC of today. Find offset in hours.
   const midnight = new Date(now);
   midnight.setUTCHours(0, 0, 0, 0);
+
+  if (!depTime) {
+    // No time given — use current UTC hour relative to today's midnight
+    return Math.max(0, Math.min(now.getUTCHours(), 71));
+  }
+
+  const cacheKey = depTime + (schedDate ? schedDate.toISOString() : '');
+  if (_hIdxCache[cacheKey] != null) return _hIdxCache[cacheKey];
+
+  const [hh, mm] = depTime.split(':').map(Number);
+
+  let target;
+  if (schedDate && !isNaN(schedDate.getTime())) {
+    // Anchor to the imported schedule date
+    target = new Date(schedDate);
+    target.setUTCHours(hh, mm, 0, 0);
+  } else {
+    // No schedule date — use today, roll to tomorrow if time is in the past
+    target = new Date(now);
+    target.setUTCHours(hh, mm, 0, 0);
+    if (target < now - 30 * 60000) target.setUTCDate(target.getUTCDate() + 1);
+  }
+
+  // Open-Meteo hourly[0] = midnight UTC of today
   const idx = Math.round((target - midnight) / 3600000);
-  const result = Math.max(0, Math.min(idx, 71)); // 3 days × 24 hrs
-  if (depTime) _hIdxCache[depTime] = result;
+  const result = Math.max(0, Math.min(idx, 71));
+  _hIdxCache[cacheKey] = result;
   return result;
 }
 
@@ -1016,7 +1029,7 @@ function renderLegs() {
     // Auto-prefill altitude from recommendation if not manually overridden
     // Compute leg geometry once — reused throughout this leg's render
     const depTime  = legDepTime[li] ?? null;
-    const hIdx     = timeToHourlyIdx(depTime);
+    const hIdx     = timeToHourlyIdx(depTime, crewInfo.scheduleDate);
     const legDist  = (!dep.error && !arr.error) ? distNm(dep.lat, dep.lon, arr.lat, arr.lon) : 0;
     const legTrack = (!dep.error && !arr.error) ? trackDeg(dep.lat, dep.lon, arr.lat, arr.lon) : 0;
 
@@ -1158,7 +1171,7 @@ function renderLegs() {
       const dep = route[li], arr = route[li + 1];
       if (dep.error || arr.error) continue;
       const legDistS  = distNm(dep.lat, dep.lon, arr.lat, arr.lon);
-      const hIdxS     = timeToHourlyIdx(legDepTime[li] ?? null);
+      const hIdxS     = timeToHourlyIdx(legDepTime[li] ?? null, crewInfo.scheduleDate);
       const capS      = legPax[li] ? 25000 : 27000;
       const recS      = (cache[dep.icao] && cache[arr.icao] && legDistS > 5)
         ? recommendAlts(legDistS, trackDeg(dep.lat,dep.lon,arr.lat,arr.lon), dep, arr, hIdxS, capS, li)
@@ -1225,7 +1238,7 @@ function showFinalize() {
       continue;
     }
     const depTime  = legDepTime[li] ?? null;
-    const hIdx     = timeToHourlyIdx(depTime);
+    const hIdx     = timeToHourlyIdx(depTime, crewInfo.scheduleDate);
     const legDistF = Math.round(distNm(dep.lat,dep.lon,arr.lat,arr.lon));
 
     // legAltFt[li] is always current — renderLegs writes it on every render
@@ -1319,11 +1332,22 @@ function importSchedule() {
   // Format date: "03/06/2026" → "06 March 2026"
   const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const fmtDate = s => { if (!s) return ''; const p = s.split('/'); if(p.length<3) return s; return p[1].replace(/^0/,'')+' '+months[parseInt(p[0])-1]+' '+p[2]; };
+  // Parse raw date into a UTC midnight Date object for hIdx calculations
+  // dateRaw format: "MM/DD/YYYY"
+  let scheduleDate = null;
+  if (dateRaw) {
+    const dp = dateRaw.split('/');
+    if (dp.length === 3) {
+      scheduleDate = new Date(Date.UTC(parseInt(dp[2]), parseInt(dp[0])-1, parseInt(dp[1]), 0, 0, 0, 0));
+      if (isNaN(scheduleDate.getTime())) scheduleDate = null;
+    }
+  }
   crewInfo = {
     captain: fmtName(captRaw),
     fo: fmtName(foRaw),
     aircraft: acRaw,
     date: fmtDate(dateRaw),
+    scheduleDate,          // Date object at UTC midnight of the schedule day
     dutyStart: dutyStartRaw,
     dutyStop: dutyStopRaw,
   };
