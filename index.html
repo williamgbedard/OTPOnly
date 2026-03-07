@@ -1224,8 +1224,17 @@ function showFinalize() {
     lines.push([dep.icao, arr.icao, '', altHft, '', wv, '', '', '', '', '', etd].join('\t'));
   }
 
+  // Convert to CSV (comma-separated, quote fields that contain commas)
+  const csvLines = lines.map(line =>
+    line.split('\t').map(cell => {
+      if (cell.includes(',') || cell.includes('"')) return `"${cell.replace(/"/g,'""')}"`;
+      return cell;
+    }).join(',')
+  );
+  const csvText = csvLines.join('\n');
+  const tsvText = lines.join('\n');
+
   // Show modal
-  const text = lines.join('\n');
   let modal = document.getElementById('finalize-modal');
   if (!modal) {
     modal = document.createElement('div');
@@ -1236,17 +1245,31 @@ function showFinalize() {
         <span style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--gold);letter-spacing:0.1em">📋 Log Sheet</span>
         <button onclick="document.getElementById('finalize-modal').style.display='none'" style="background:none;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;font-size:0.7rem">✕ Close</button>
       </div>
-      <div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--teal);background:rgba(0,212,184,0.08);border:1px solid rgba(0,212,184,0.2);border-radius:8px;padding:8px 10px;flex-shrink:0">
-        Select cell <b>A2</b> in Numbers, then tap Copy &amp; paste.
+      <div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--teal);background:rgba(0,212,184,0.08);border:1px solid rgba(0,212,184,0.2);border-radius:8px;padding:8px 10px;flex-shrink:0;line-height:1.6">
+        Tap <b>Download CSV</b> → open the file → select all → copy → paste into Numbers at <b>A2</b>.
       </div>
       <textarea id="finalize-text" readonly style="flex:1;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:8px;color:var(--white);font-family:'DM Mono',monospace;font-size:0.65rem;padding:10px;resize:none;outline:none;line-height:1.8;white-space:pre;overflow:auto"></textarea>
-      <button onclick="copyFinalize()" style="background:var(--gold);color:#000;border:none;border-radius:8px;padding:10px;font-size:0.8rem;font-weight:700;cursor:pointer;letter-spacing:.05em;font-family:'DM Mono',monospace;flex-shrink:0">⎘ Copy</button>
+      <button id="finalize-dl-btn" style="background:var(--gold);color:#000;border:none;border-radius:8px;padding:10px;font-size:0.8rem;font-weight:700;cursor:pointer;letter-spacing:.05em;font-family:'DM Mono',monospace;flex-shrink:0">⬇ Download CSV</button>
+      <button onclick="copyFinalize()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px;font-size:0.72rem;cursor:pointer;font-family:'DM Mono',monospace;flex-shrink:0">⎘ Try Copy instead</button>
       <span id="finalize-copy-status" style="text-align:center;font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--teal);min-height:1em;flex-shrink:0"></span>
     `;
     document.body.appendChild(modal);
   }
 
-  document.getElementById('finalize-text').value = lines.join('\n');
+  document.getElementById('finalize-text').value = tsvText;
+
+  // Wire up download button each time (csv content may change)
+  const dlBtn = document.getElementById('finalize-dl-btn');
+  dlBtn.onclick = () => {
+    const blob = new Blob([csvText], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `logsheet_${crewInfo.date.replace(/ /g,'_') || 'flight'}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   modal.style.display = 'flex';
 }
 
