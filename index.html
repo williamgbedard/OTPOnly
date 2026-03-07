@@ -1108,17 +1108,18 @@ function renderLegs() {
     // Auto-prefill altitude from recommendation if not manually overridden
     let ft = legAltFt[li];
     if (!legAltManual[li] && !dep.error && !arr.error) {
-      // Compute quick recommendation using current avg wind (may be loading)
       const _legDist = distNm(dep.lat,dep.lon,arr.lat,arr.lon);
       const _legTrack = trackDeg(dep.lat,dep.lon,arr.lat,arr.lon);
       const _hIdx2 = timeToHourlyIdx(legDepTime[li] ?? null);
-      const _avg  = (cache[dep.icao] && cache[arr.icao]) ? avgWindLeg(dep, arr, _legDist, ft ?? 10000, _hIdx2) : null;
-      if (_avg && _legDist > 5) {
+      if (cache[dep.icao] && cache[arr.icao] && _legDist > 5) {
         const _cap = legPax[li] ? 25000 : 27000;
         const _rec = recommendAlts(_legDist, _legTrack, dep, arr, _hIdx2, _cap);
         if (_rec) {
           const chosen = optMode === 'fuel' ? _rec.bestFuel : _rec.bestTime;
-          if (chosen) ft = chosen.alt;
+          if (chosen) {
+            ft = chosen.alt;
+            legAltFt[li] = ft; // store so finalize always reads the same value
+          }
         }
       }
     }
@@ -1304,11 +1305,13 @@ function showFinalize() {
       block2Lines.push(`${dep.icao}\t${arr.icao}`);
       continue;
     }
-    const ft      = legAltFt[li] ?? 10000;
-    const depTime = legDepTime[li] ?? null;
-    const hIdx    = timeToHourlyIdx(depTime);
+    const depTime  = legDepTime[li] ?? null;
+    const hIdx     = timeToHourlyIdx(depTime);
     const legDistF = Math.round(distNm(dep.lat,dep.lon,arr.lat,arr.lon));
-    const avg      = avgWindLeg(dep, arr, legDistF, ft, hIdx);
+
+    // legAltFt[li] is always current — renderLegs writes it on every render
+    const ft  = legAltFt[li] ?? 10000;
+    const avg = avgWindLeg(dep, arr, legDistF, ft, hIdx);
     const altHft  = Math.round(ft / 100);
     const wv      = avg ? `${String(Math.round(avg.dir)).padStart(3,'0')}/${Math.round(avg.spd)}` : '';
     const etd     = depTime || '';
