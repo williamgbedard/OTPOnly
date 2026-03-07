@@ -271,7 +271,7 @@
     display: flex; align-items: center; gap: 4px; flex-shrink: 0;
   }
   .alt-ft-input {
-    width: 44px;
+    width: 41px;
     background: rgba(255,255,255,0.07);
     border: 1px solid var(--teal);
     border-radius: 8px;
@@ -640,6 +640,7 @@ let legDepTime = [];   // per-leg departure time as "HH:MM" local string (or nul
 let legExpanded = []; // per-leg expanded state (bool)
 let optMode = 'fuel'; // 'fuel' or 'speed' — global optimisation preference
 let legAltManual = []; // true if user has manually overridden the altitude for this leg
+let legPax     = []; // true if leg has passengers (limits alt to 25000)
 let crewInfo = { captain: '', fo: '', aircraft: '', date: '', dutyStart: '', dutyStop: '' }; // parsed from email
 
 // ── Clock ──────────────────────────────────────────────────
@@ -787,9 +788,9 @@ const twClass = (windDir, windSpd, track) => {
 // Returns {bestFuel, bestTime} each: {alt, totalFuel, totalTime, gs, tas, tailwind}
 // legDistNm: leg distance, trackDeg: true track, avgWindDir/Spd: avg wind at candidate alts
 // Since wind varies by alt we use the midpoint avg wind as approximation
-function recommendAlts(legDistNm, track, windDir, windSpd) {
+function recommendAlts(legDistNm, track, windDir, windSpd, maxFt = 27000) {
   if (!legDistNm || legDistNm <= 0 || windDir == null) return null;
-  const candidates = hemisphericAlts(track, 2000, 27000);
+  const candidates = hemisphericAlts(track, 2000, maxFt);
   let bestFuel = null, bestTime = null;
 
   for (const altFt of candidates) {
@@ -818,16 +819,38 @@ function recommendAlts(legDistNm, track, windDir, windSpd) {
 }
 
 // ── Circular-mean wind average ─────────────────────────────
-function avgWind(w1, w2) {
-  if (!w1 && !w2) return null;
-  if (!w1) return w2;
-  if (!w2) return w1;
-  const spd = ((w1.spd ?? 0) + (w2.spd ?? 0)) / 2;
-  const r1 = (w1.dir ?? 0) * Math.PI / 180;
-  const r2 = (w2.dir ?? 0) * Math.PI / 180;
-  let dir = Math.atan2((Math.sin(r1)+Math.sin(r2))/2, (Math.cos(r1)+Math.cos(r2))/2) * 180 / Math.PI;
+// Average an array of {dir, spd} wind samples (circular mean for direction)
+function avgWindSamples(samples) {
+  const valid = samples.filter(Boolean);
+  if (!valid.length) return null;
+  const spd = valid.reduce((s, w) => s + (w.spd ?? 0), 0) / valid.length;
+  const sinSum = valid.reduce((s, w) => s + Math.sin((w.dir ?? 0) * Math.PI / 180), 0);
+  const cosSum = valid.reduce((s, w) => s + Math.cos((w.dir ?? 0) * Math.PI / 180), 0);
+  let dir = Math.atan2(sinSum / valid.length, cosSum / valid.length) * 180 / Math.PI;
   if (dir < 0) dir += 360;
   return { spd: Math.round(spd * 10) / 10, dir: Math.round(dir) };
+}
+
+// Legacy two-point average (kept for compatibility)
+function avgWind(w1, w2) {
+  return avgWindSamples([w1, w2]);
+}
+
+// Interpolate a point fraction t (0–1) along great circle from (lat1,lon1) to (lat2,lon2)
+function gcInterp(lat1, lon1, lat2, lon2, t) {
+  const toR = d => d * Math.PI / 180;
+  const toD = r => r * 180 / Math.PI;
+  const φ1 = toR(lat1), λ1 = toR(lon1), φ2 = toR(lat2), λ2 = toR(lon2);
+  const d = 2 * Math.asin(Math.sqrt(
+    Math.sin((φ2-φ1)/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin((λ2-λ1)/2)**2
+  ));
+  if (d < 1e-10) return { lat: lat1, lon: lon1 };
+  const A = Math.sin((1-t)*d)/Math.sin(d);
+  const B = Math.sin(t*d)/Math.sin(d);
+  const x = A*Math.cos(φ1)*Math.cos(λ1) + B*Math.cos(φ2)*Math.cos(λ2);
+  const y = A*Math.cos(φ1)*Math.sin(λ1) + B*Math.cos(φ2)*Math.sin(λ2);
+  const z = A*Math.sin(φ1) + B*Math.sin(φ2);
+  return { lat: toD(Math.atan2(z, Math.sqrt(x*x+y*y))), lon: toD(Math.atan2(y, x)) };
 }
 
 // ── Interpolate wind at arbitrary altitude for one airport ─
@@ -933,18 +956,59 @@ function getRawWind(data, lvl, hIdx) {
 }
 
 // ── Fetch one airport (all pressure levels) ────────────────
+const WIND_VARS = (() => {
+  const hpas = PRESSURE_LEVELS.filter(l => l.hpa).map(l => l.hpa);
+  return [...hpas.map(h=>`windspeed_${h}hPa`), ...hpas.map(h=>`winddirection_${h}hPa`)].join(',')
+    + ',windspeed_10m,winddirection_10m';
+})();
+
+async function fetchLatLon(lat, lon, key) {
+  if (cache[key]) return;
+  const url = `https://api.open-meteo.com/v1/forecast`
+    + `?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}`
+    + `&hourly=${WIND_VARS}&wind_speed_unit=ms&forecast_days=3`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const json = await r.json();
+  if (!json.hourly) throw new Error('No hourly data');
+  cache[key] = json;
+}
+
 async function fetchAirport(ap) {
   if (cache[ap.icao]) return;
-  const hpas  = PRESSURE_LEVELS.filter(l => l.hpa).map(l => l.hpa);
-  const hvars = [...hpas.map(h=>`windspeed_${h}hPa`), ...hpas.map(h=>`winddirection_${h}hPa`)].join(',');
-  const url   = `https://api.open-meteo.com/v1/forecast`
-    + `?latitude=${ap.lat}&longitude=${ap.lon}`
-    + `&hourly=${hvars},windspeed_10m,winddirection_10m&wind_speed_unit=ms&forecast_days=3`;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`HTTP ${r.status} for ${ap.icao}`);
-  const json = await r.json();
-  if (!json.hourly) throw new Error(`No hourly data for ${ap.icao}`);
-  cache[ap.icao] = json;
+  await fetchLatLon(ap.lat, ap.lon, ap.icao);
+}
+
+// Sample wind along a leg every 100 nm (for legs > 150 nm), always including dep & arr
+async function fetchLegMidpoints(dep, arr, legDistNm) {
+  if (legDistNm <= 150) return [];
+  const nIntervals = Math.ceil(legDistNm / 100);
+  const keys = [];
+  for (let i = 1; i < nIntervals; i++) {
+    const t = i / nIntervals;
+    const pt = gcInterp(dep.lat, dep.lon, arr.lat, arr.lon, t);
+    const key = `mid:${pt.lat.toFixed(3)},${pt.lon.toFixed(3)}`;
+    keys.push({ key, lat: pt.lat, lon: pt.lon });
+  }
+  await Promise.allSettled(keys.map(({ key, lat, lon }) => fetchLatLon(lat, lon, key)));
+  return keys.map(k => k.key);
+}
+
+// Average wind across dep + midpoints + arr for a leg
+function avgWindLeg(dep, arr, legDistNm, ft, hIdx) {
+  const samples = [];
+  samples.push(getWindAtFt(dep.icao, ft, hIdx));
+  if (legDistNm > 150) {
+    const nIntervals = Math.ceil(legDistNm / 100);
+    for (let i = 1; i < nIntervals; i++) {
+      const t = i / nIntervals;
+      const pt = gcInterp(dep.lat, dep.lon, arr.lat, arr.lon, t);
+      const key = `mid:${pt.lat.toFixed(3)},${pt.lon.toFixed(3)}`;
+      if (cache[key]) samples.push(getWindAtFt(key, ft, hIdx));
+    }
+  }
+  samples.push(getWindAtFt(arr.icao, ft, hIdx));
+  return avgWindSamples(samples);
 }
 
 // ── Parse route ────────────────────────────────────────────
@@ -969,6 +1033,15 @@ function toggleOptMode() {
     btn.style.borderColor = optMode === 'fuel' ? 'var(--teal)' : 'var(--gold)';
     btn.style.color = optMode === 'fuel' ? 'var(--teal)' : 'var(--gold)';
   }
+  renderLegs();
+}
+
+// ── Toggle pax/no-pax for a leg ───────────────────────────
+function toggleLegPax(li) {
+  legPax[li] = !legPax[li];
+  // If manual alt exceeds new cap, clear it so it repopulates
+  const cap = legPax[li] ? 25000 : 27000;
+  if (legAltManual[li] && legAltFt[li] > cap) legAltManual[li] = false;
   renderLegs();
 }
 
@@ -1037,11 +1110,11 @@ function renderLegs() {
       // Compute quick recommendation using current avg wind (may be loading)
       const _legDist = distNm(dep.lat,dep.lon,arr.lat,arr.lon);
       const _legTrack = trackDeg(dep.lat,dep.lon,arr.lat,arr.lon);
-      const _wDep = cache[dep.icao] ? getWindAtFt(dep.icao, ft ?? 10000, timeToHourlyIdx(legDepTime[li] ?? null)) : null;
-      const _wArr = cache[arr.icao] ? getWindAtFt(arr.icao, ft ?? 10000, timeToHourlyIdx(legDepTime[li] ?? null)) : null;
-      const _avg  = (_wDep && _wArr) ? avgWind(_wDep, _wArr) : null;
+      const _hIdx2 = timeToHourlyIdx(legDepTime[li] ?? null);
+      const _avg  = (cache[dep.icao] && cache[arr.icao]) ? avgWindLeg(dep, arr, _legDist, ft ?? 10000, _hIdx2) : null;
       if (_avg && _legDist > 5) {
-        const _rec = recommendAlts(_legDist, _legTrack, _avg.dir, _avg.spd);
+        const _cap = legPax[li] ? 25000 : 27000;
+        const _rec = recommendAlts(_legDist, _legTrack, _avg.dir, _avg.spd, _cap);
         if (_rec) {
           const chosen = optMode === 'fuel' ? _rec.bestFuel : _rec.bestTime;
           if (chosen) ft = chosen.alt;
@@ -1069,20 +1142,25 @@ function renderLegs() {
 
     html += `<div class="leg-card">
       <div class="leg-header">
-        <div class="leg-title">${dep.error?`<span style="color:var(--severe)">${dep.icao}</span>`:dep.icao}<span class="leg-arrow">›</span>${arr.error?`<span style="color:var(--severe)">${arr.icao}</span>`:arr.icao}${(!dep.error && !arr.error) ? `<span style="font-size:0.75rem;color:var(--muted);font-family:'DM Mono',monospace;margin-left:8px;font-weight:400">${Math.round(distNm(dep.lat,dep.lon,arr.lat,arr.lon))} nm · ${Math.round(trackDeg(dep.lat,dep.lon,arr.lat,arr.lon)).toString().padStart(3,'0')}°T</span>` : ''}</div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
-          <div style="display:flex;align-items:center;gap:4px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap">
+          <div class="leg-title" style="flex:1;min-width:0">${dep.error?`<span style="color:var(--severe)">${dep.icao}</span>`:dep.icao}<span class="leg-arrow">›</span>${arr.error?`<span style="color:var(--severe)">${arr.icao}</span>`:arr.icao}${(!dep.error && !arr.error) ? `<span style="font-size:0.75rem;color:var(--muted);font-family:'DM Mono',monospace;margin-left:8px;font-weight:400">${Math.round(distNm(dep.lat,dep.lon,arr.lat,arr.lon))} nm · ${Math.round(trackDeg(dep.lat,dep.lon,arr.lat,arr.lon)).toString().padStart(3,'0')}°T</span>` : ''}</div>
+          <button onclick="toggleLegPax(${li})" style="background:none;border:1px solid ${legPax[li]?'var(--gold)':'var(--border)'};color:${legPax[li]?'var(--gold)':'var(--muted)'};font-size:0.6rem;padding:3px 7px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap;letter-spacing:.04em;flex-shrink:0">${legPax[li]?'👤 PAX':'👤 NO PAX'}</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;width:100%;margin-top:6px">
+          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
             <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Depart (Z)</span>
             <input id="dep-time-${li}" class="alt-ft-input" type="text" inputmode="numeric"
               placeholder="HH:MM" value="${depTime||''}" maxlength="5"
-              style="width:72px;padding:4px 6px;font-size:0.75rem;text-align:center"
+              style="width:52px;padding:4px 4px;font-size:0.75rem;text-align:center"
               oninput="onLegTimeText(${li},this)" />
             ${localTimeLabel ? `<span style="font-size:0.75rem;color:var(--muted);white-space:nowrap">${localTimeLabel}</span>` : ''}
           </div>
-          <div class="leg-alt-input-wrap">
-            <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Altitude</span>
-            <input id="alt-inp-${li}" class="alt-ft-input" type="number" value="${Math.round(ft/100)}" min="0" max="450" step="1"
-              onchange="onLegAltChange(${li})" onblur="onLegAltChange(${li})" />
+          <div style="display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0">
+            <div class="leg-alt-input-wrap">
+              <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Altitude</span>
+              <input id="alt-inp-${li}" class="alt-ft-input" type="number" value="${Math.round(ft/100)}" min="0" max="450" step="1"
+                onchange="onLegAltChange(${li})" onblur="onLegAltChange(${li})" />
+            </div>
           </div>
         </div>
       </div>`;
@@ -1098,10 +1176,10 @@ function renderLegs() {
     const legTrack = trackDeg(dep.lat,dep.lon,arr.lat,arr.lon);
     const wDep = getWindAtFt(dep.icao, ft, hIdx);
     const wArr = getWindAtFt(arr.icao, ft, hIdx);
-    const avg  = avgWind(wDep, wArr);
+    const avg  = avgWindLeg(dep, arr, legDist, ft, hIdx);
     const arrowRot = avg?.dir != null ? avg.dir - legTrack + 180 : 0;
     const rec = (!depLoading && !arrLoading && avg && legDist > 5)
-      ? recommendAlts(legDist, legTrack, avg.dir, avg.spd) : null;
+      ? recommendAlts(legDist, legTrack, avg.dir, avg.spd, legPax[li] ? 25000 : 27000) : null;
 
     // Avg banner
     const avgWindStr = avg
@@ -1109,7 +1187,7 @@ function renderLegs() {
       : (depLoading||arrLoading ? '…' : '—');
     const isExpanded = !!legExpanded[li];
     html += `<div class="leg-avg" onclick="toggleLeg(${li})">
-      <div class="leg-avg-label">◈ Avg · ${label}${interpNote ? ' · <span style="opacity:0.6;font-size:0.48rem">'+interpNote+'</span>' : ''}<span class="expand-hint">${isExpanded ? '▲ collapse' : '▼ details'}</span></div>
+      <div class="leg-avg-label">${isExpanded ? `◈ Avg · ${label}${interpNote ? ' · <span style="opacity:0.6;font-size:0.48rem">'+interpNote+'</span>' : ''} · ` : ''}<span class="expand-hint">${isExpanded ? '▲ collapse' : '▼ details'}</span></div>
       <div class="avg-wind-line">
         <span class="${twClass(avg?.dir, avg?.spd, legTrack)}">${avgWindStr}</span>
         <span style="font-size:1.4rem;transform:rotate(${arrowRot}deg);display:inline-block;opacity:${avg?0.9:0.2};transition:transform 0.4s;line-height:1">↑</span>
@@ -1138,15 +1216,16 @@ function renderLegs() {
       const sameFuelTime = rec.bestFuel?.alt === rec.bestTime?.alt;
       const fmtRec = (r, label, color) => {
         if (!r) return '';
-        const twSign = r.tailwind >= 0 ? '+' : '';
-        const twStr = `${twSign}${r.tailwind}kt`;
-        const twColor = r.tailwind >= 0
+        const isHw = r.tailwind < 0;
+        const twLabel = isHw ? 'HW' : 'TW';
+        const twStr = `${twLabel} ${Math.abs(r.tailwind)}kt`;
+        const twColor = !isHw
           ? 'var(--calm)'
           : (Math.abs(r.tailwind) < 15 ? 'var(--calm)' : Math.abs(r.tailwind) < 30 ? 'var(--moderate)' : Math.abs(r.tailwind) < 50 ? 'var(--strong)' : 'var(--severe)');
         return `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.1)">
           <span style="font-family:'DM Mono',monospace;font-size:0.58rem;color:${color};text-transform:uppercase;letter-spacing:0.1em;flex-shrink:0">${label}</span>
           <span style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${color};letter-spacing:0.05em;flex-shrink:0">${r.alt/100}</span>
-          <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);flex-shrink:0">GS ${r.gs}kt · ${r.totalFuel}lb · ${r.totalTimeMin}min · TW <span style="color:${twColor}">${twStr}</span></span>
+          <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);flex-shrink:0">GS ${r.gs}kt · ${r.totalFuel}lb · ${r.totalTimeMin}min · <span style="color:${twColor}">${twStr}</span></span>
         </div>`;
       };
       if (sameFuelTime) {
@@ -1160,6 +1239,22 @@ function renderLegs() {
     if (isExpanded) {
       html += `<div class="leg-rows">`;
       html += renderRow(dep, wDep, depLoading);
+
+      // Midpoints along the leg (for legs > 150 nm)
+      if (legDist > 150) {
+        const nIntervals = Math.ceil(legDist / 100);
+        for (let mi = 1; mi < nIntervals; mi++) {
+          const t = mi / nIntervals;
+          const pt = gcInterp(dep.lat, dep.lon, arr.lat, arr.lon, t);
+          const key = `mid:${pt.lat.toFixed(3)},${pt.lon.toFixed(3)}`;
+          const midDist = Math.round(legDist * t);
+          const wMid = cache[key] ? getWindAtFt(key, ft, hIdx) : null;
+          const midLoading = !cache[key];
+          const midWp = { icao: `+${midDist}nm`, name: `${Math.round(pt.lat*10)/10}°N ${Math.round(Math.abs(pt.lon)*10)/10}°${pt.lon<0?'W':'E'}` };
+          html += renderRow(midWp, wMid, midLoading);
+        }
+      }
+
       html += renderRow(arr, wArr, arrLoading);
       html += `</div>`;
     }
@@ -1188,51 +1283,36 @@ function showFinalize() {
 
   const lines = [];
 
-  // Single paste block starting at cell A2
-  // Row 2: 13 tabs to col N = aircraft reg
-  // Row 3: blank (aircraft type row)
-  // Row 4: 13 tabs to col N = captain, skip O (label), P = FO
-  // Rows 5-7: blank (preserve header row 7)
-  // Row 8+: legs — A=FROM B=TO C=blank D=ALT E=blank F=W/V G-K=blank(5) L=ETD
-  const T13 = '\t'.repeat(13); // tabs to reach col N from col A
+  // ── BLOCK 1: aircraft + crew (paste at N2) ──────────────
+  // Row 1 (N2): aircraft
+  // Row 2 (N3): blank
+  // Row 3 (N4): captain \t\t FO  (skip O col = FO label)
+  const block1Lines = [
+    crewInfo.aircraft || '',
+    '',
+    (crewInfo.captain || '') + '\t\t' + (crewInfo.fo || ''),
+  ];
 
-  lines.push(T13 + (crewInfo.aircraft || ''));           // row 2: aircraft at N2
-  lines.push('');                                         // row 3: blank
-  lines.push(T13 + (crewInfo.captain || '') + '\t\t' + (crewInfo.fo || '')); // row 4: N=captain P=FO
-  lines.push('');                                         // row 5
-  lines.push('');                                         // row 6
-  lines.push('');                                         // row 7 (header row — don't overwrite)
-
+  // ── BLOCK 2: legs (paste at A8) ──────────────────────────
+  // A=FROM  B=TO  C=blank  D=ALT  E=blank  F=W/V  G-K=blank(5)  L=ETD
+  const block2Lines = [];
   for (let li = 0; li < route.length - 1; li++) {
     const dep = route[li];
     const arr = route[li + 1];
     if (dep.error || arr.error) {
-      lines.push(`${dep.icao}\t${arr.icao}`);
+      block2Lines.push(`${dep.icao}\t${arr.icao}`);
       continue;
     }
     const ft      = legAltFt[li] ?? 10000;
     const depTime = legDepTime[li] ?? null;
     const hIdx    = timeToHourlyIdx(depTime);
-    const wDep    = getWindAtFt(dep.icao, ft, hIdx);
-    const wArr    = getWindAtFt(arr.icao, ft, hIdx);
-    const avg     = avgWind(wDep, wArr);
+    const legDistF = Math.round(distNm(dep.lat,dep.lon,arr.lat,arr.lon));
+    const avg      = avgWindLeg(dep, arr, legDistF, ft, hIdx);
     const altHft  = Math.round(ft / 100);
-    // W/V: "270/15"
-    const wv  = avg ? `${String(Math.round(avg.dir)).padStart(3,'0')}/${Math.round(avg.spd)}` : '';
-    const etd = depTime || '';
-    // A=FROM  B=TO  C=blank  D=ALT  E=blank  F=W/V  G,H,I,J,K=blank(5)  L=ETD
-    lines.push([dep.icao, arr.icao, '', altHft, '', wv, '', '', '', '', '', etd].join('\t'));
+    const wv      = avg ? `${String(Math.round(avg.dir)).padStart(3,'0')}/${Math.round(avg.spd)}` : '';
+    const etd     = depTime || '';
+    block2Lines.push([dep.icao, arr.icao, '', altHft, '', wv, '', '', '', '', '', etd].join('\t'));
   }
-
-  // Convert to CSV (comma-separated, quote fields that contain commas)
-  const csvLines = lines.map(line =>
-    line.split('\t').map(cell => {
-      if (cell.includes(',') || cell.includes('"')) return `"${cell.replace(/"/g,'""')}"`;
-      return cell;
-    }).join(',')
-  );
-  const csvText = csvLines.join('\n');
-  const tsvText = lines.join('\n');
 
   // Show modal
   let modal = document.getElementById('finalize-modal');
@@ -1245,87 +1325,57 @@ function showFinalize() {
         <span style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--gold);letter-spacing:0.1em">📋 Log Sheet</span>
         <button onclick="document.getElementById('finalize-modal').style.display='none'" style="background:none;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;font-size:0.7rem">✕ Close</button>
       </div>
-      <div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--teal);background:rgba(0,212,184,0.08);border:1px solid rgba(0,212,184,0.2);border-radius:8px;padding:8px 10px;flex-shrink:0;line-height:1.6">
-        Tap <b>Download CSV</b> → open the file → select all → copy → paste into Numbers at <b>A2</b>.
+      <div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--teal);background:rgba(0,212,184,0.08);border:1px solid rgba(0,212,184,0.2);border-radius:8px;padding:8px 10px;flex-shrink:0;line-height:1.8">
+        1. Tap <b>Copy Block 1</b> → select cell <b>N2</b> in Numbers → paste<br>
+        2. Tap <b>Copy Block 2</b> → select cell <b>A8</b> in Numbers → paste
       </div>
-      <textarea id="finalize-text" readonly style="flex:1;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:8px;color:var(--white);font-family:'DM Mono',monospace;font-size:0.65rem;padding:10px;resize:none;outline:none;line-height:1.8;white-space:pre;overflow:auto"></textarea>
-      <button id="finalize-dl-btn" style="background:var(--gold);color:#000;border:none;border-radius:8px;padding:10px;font-size:0.8rem;font-weight:700;cursor:pointer;letter-spacing:.05em;font-family:'DM Mono',monospace;flex-shrink:0">⬇ Download CSV</button>
-      <button onclick="copyFinalize()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px;font-size:0.72rem;cursor:pointer;font-family:'DM Mono',monospace;flex-shrink:0">⎘ Try Copy instead</button>
+      <div style="font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--muted);flex-shrink:0">BLOCK 1 — Aircraft &amp; Crew → paste at N2</div>
+      <textarea id="finalize-b1" readonly style="height:72px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:8px;color:var(--white);font-family:'DM Mono',monospace;font-size:0.65rem;padding:10px;resize:none;outline:none;line-height:1.8;white-space:pre;overflow:auto;flex-shrink:0"></textarea>
+      <button onclick="copyFinalizeBlock(1)" style="background:var(--teal);color:#000;border:none;border-radius:8px;padding:9px;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:'DM Mono',monospace;flex-shrink:0">⎘ Copy Block 1</button>
+      <div style="font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--muted);flex-shrink:0;margin-top:4px">BLOCK 2 — Legs → paste at A8</div>
+      <textarea id="finalize-b2" readonly style="flex:1;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:8px;color:var(--white);font-family:'DM Mono',monospace;font-size:0.65rem;padding:10px;resize:none;outline:none;line-height:1.8;white-space:pre;overflow:auto"></textarea>
+      <button onclick="copyFinalizeBlock(2)" style="background:var(--gold);color:#000;border:none;border-radius:8px;padding:9px;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:'DM Mono',monospace;flex-shrink:0">⎘ Copy Block 2</button>
       <span id="finalize-copy-status" style="text-align:center;font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--teal);min-height:1em;flex-shrink:0"></span>
     `;
     document.body.appendChild(modal);
   }
 
-  document.getElementById('finalize-text').value = tsvText;
-
-  // Wire up download button each time (csv content may change)
-  const dlBtn = document.getElementById('finalize-dl-btn');
-  dlBtn.onclick = () => {
-    const blob = new Blob([csvText], { type: 'text/csv' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `logsheet_${crewInfo.date.replace(/ /g,'_') || 'flight'}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
+  document.getElementById('finalize-b1').value = block1Lines.join('\n');
+  document.getElementById('finalize-b2').value = block2Lines.join('\n');
   modal.style.display = 'flex';
 }
 
-function tsvToHtmlTable(tsv) {
-  // Convert TSV text to an HTML table that Numbers can parse correctly on iPad
-  const rows = tsv.split('\n');
-  let html = '<table>';
-  for (const row of rows) {
-    html += '<tr>';
-    const cells = row.split('\t');
-    for (const cell of cells) {
-      html += `<td>${cell.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td>`;
-    }
-    html += '</tr>';
-  }
-  html += '</table>';
-  return html;
-}
-
-function copyFinalize() {
-  const text = document.getElementById('finalize-text').value;
+function copyFinalizeBlock(n) {
+  const ta = document.getElementById(`finalize-b${n}`);
+  const text = ta.value;
   const s = document.getElementById('finalize-copy-status');
-  const htmlTable = tsvToHtmlTable(text);
-
-  // Write both text/plain (TSV) and text/html (table) to clipboard
-  // Numbers on iPad will prefer text/html and parse cells correctly
+  const cell = n === 1 ? 'N2' : 'A8';
+  const done = () => {
+    s.textContent = `✓ Copied — select ${cell} in Numbers and paste`;
+    setTimeout(() => s.textContent = '', 3000);
+  };
   if (navigator.clipboard && window.ClipboardItem) {
     const item = new ClipboardItem({
       'text/plain': new Blob([text], { type: 'text/plain' }),
-      'text/html':  new Blob([htmlTable], { type: 'text/html' }),
     });
-    navigator.clipboard.write([item]).then(() => {
-      s.textContent = '✓ Copied — select A2 in Numbers and paste';
-      setTimeout(() => s.textContent = '', 3000);
-    }).catch(() => fallbackCopy(text, s));
+    navigator.clipboard.write([item]).then(done).catch(() => execCopy(ta, s, cell));
   } else if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(() => {
-      s.textContent = '✓ Copied — select A2 in Numbers and paste';
-      setTimeout(() => s.textContent = '', 3000);
-    }).catch(() => fallbackCopy(text, s));
+    navigator.clipboard.writeText(text).then(done).catch(() => execCopy(ta, s, cell));
   } else {
-    fallbackCopy(text, s);
+    execCopy(ta, s, cell);
   }
 }
 
-function fallbackCopy(text, statusEl) {
-  const ta = document.getElementById('finalize-text');
+function execCopy(ta, statusEl, cell) {
   ta.focus();
   ta.select();
   try {
     document.execCommand('copy');
-    statusEl.textContent = '✓ Copied — select A2 in Numbers and paste';
+    statusEl.textContent = `✓ Copied — select ${cell} in Numbers and paste`;
   } catch(e) {
-    statusEl.textContent = 'Long-press the text above → Select All → Copy';
+    statusEl.textContent = 'Long-press text → Select All → Copy';
   }
-  setTimeout(() => statusEl.textContent = '', 4000);
+  setTimeout(() => statusEl.textContent = '', 3000);
 }
 
 function importSchedule() {
@@ -1410,6 +1460,7 @@ function importSchedule() {
   legAltFt    = route.slice(0, -1).map((_, i) => legAltManual[i] ? legAltFt[i] : undefined);
   legExpanded  = route.slice(0, -1).map((_, i) => legExpanded[i]  ?? false);
   legAltManual  = route.slice(0, -1).map((_, i) => legAltManual[i] ?? false);
+  legPax        = route.slice(0, -1).map((_, i) => legPax[i] ?? true);
   legDepTime = legs.map(l => l.depTime);
   while (legDepTime.length < route.length - 1) legDepTime.push(null);
 
@@ -1433,6 +1484,7 @@ async function handleGo() {
   legDepTime         = Array.from({length: legs}, (_, i) => legDepTime[i]  ?? null);
   legExpanded        = Array.from({length: legs}, (_, i) => legExpanded[i] ?? false);
   legAltManual       = Array.from({length: legs}, (_, i) => legAltManual[i] ?? false);
+  legPax             = Array.from({length: legs}, (_, i) => legPax[i] ?? true);
 
   renderLegs();
 
@@ -1445,6 +1497,19 @@ async function handleGo() {
     catch(e) { cache[ap.icao] = { error: e.message }; }
     renderLegs();
   }));
+
+  // Fetch midpoints for long legs (>150 nm) every 100 nm
+  const midFetches = [];
+  for (let li = 0; li < route.length - 1; li++) {
+    const dep = route[li], arr = route[li+1];
+    if (dep.error || arr.error) continue;
+    const d = Math.round(distNm(dep.lat, dep.lon, arr.lat, arr.lon));
+    if (d > 150) midFetches.push(fetchLegMidpoints(dep, arr, d));
+  }
+  if (midFetches.length) {
+    await Promise.allSettled(midFetches);
+    renderLegs();
+  }
 
   btn.classList.remove('loading');
 }
