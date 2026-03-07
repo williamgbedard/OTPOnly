@@ -593,7 +593,7 @@ function recommendAlts(legDistNm, track, dep, arr, hIdx, maxFt = 27000, _li = nu
     const totalFuel = perf.fuel + cruiseFuel;
     const totalTimeHr = (perf.time / 3600) + cruiseTimeHr;
 
-    const result = { alt: altFt, totalFuel: Math.round(totalFuel), totalTimeMin: Math.round(totalTimeHr * 60), gs: Math.round(gs), tas: Math.round(perf.tas), tailwind: Math.round(tailwind) };
+    const result = { alt: altFt, totalFuel: Math.round(totalFuel), totalTimeMin: Math.round(totalTimeHr * 60), gs: Math.round(gs), tas: Math.round(perf.tas), tailwind: Math.round(tailwind), windDir: Math.round(w.dir), windSpd: Math.round(w.spd) };
 
     if (!bestFuel || totalFuel < bestFuel.totalFuel) bestFuel = result;
     if (!bestTime || totalTimeHr < bestTime.totalTimeHr) { bestTime = { ...result, totalTimeHr }; }
@@ -861,7 +861,7 @@ function onLegTimeText(legIdx, inp) {
 }
 
 // ── Render a single altitude recommendation row ───────────
-function renderRecRow(r, label, color) {
+function renderRecRow(r, label, color, legTrack) {
   if (!r) return '';
   const isHw    = r.tailwind < 0;
   const twLabel = isHw ? 'HW' : 'TW';
@@ -870,10 +870,16 @@ function renderRecRow(r, label, color) {
     : Math.abs(r.tailwind) < 15 ? 'var(--calm)'
     : Math.abs(r.tailwind) < 30 ? 'var(--moderate)'
     : Math.abs(r.tailwind) < 50 ? 'var(--strong)' : 'var(--severe)';
+  const arrowRot = r.windDir != null ? r.windDir - legTrack + 180 : 0;
+  const windStr  = r.windDir != null ? `${String(r.windDir).padStart(3,'0')}° / ${r.windSpd}kt` : '';
   return `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.1)">
     <span style="font-family:'DM Mono',monospace;font-size:0.58rem;color:${color};text-transform:uppercase;letter-spacing:0.1em;flex-shrink:0">${label}</span>
     <span style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${color};letter-spacing:0.05em;flex-shrink:0">${r.alt/100}</span>
-    <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);flex-shrink:0">GS ${r.gs}kt · ${r.totalFuel}lb · ${r.totalTimeMin}min · <span style="color:${twColor}">${twStr}</span></span>
+    <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);flex-shrink:0">GS ${r.gs}kt · ${r.totalFuel}lb · ${r.totalTimeMin}min</span>
+    <div style="display:flex;align-items:center;gap:3px;margin-left:auto;flex-shrink:0">
+      <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:${twColor}">${windStr}</span>
+      <span style="font-size:0.9rem;transform:rotate(${arrowRot}deg);display:inline-block;opacity:0.85;transition:transform 0.3s;line-height:1;color:${twColor}">↑</span>
+    </div>
   </div>`;
 }
 
@@ -1008,10 +1014,10 @@ function renderLegs() {
     if (rec) {
       const sameFuelTime = rec.bestFuel?.alt === rec.bestTime?.alt;
       if (sameFuelTime) {
-        html += renderRecRow(rec.bestFuel, '⚡ Best', 'var(--teal)');
+        html += renderRecRow(rec.bestFuel, '⚡ Best', 'var(--teal)', legTrack);
       } else {
-        html += renderRecRow(rec.bestFuel, '⛽ Fuel', 'var(--teal)');
-        html += renderRecRow(rec.bestTime, '⚡ Fast', 'var(--gold)');
+        html += renderRecRow(rec.bestFuel, '⛽ Fuel', 'var(--teal)', legTrack);
+        html += renderRecRow(rec.bestTime, '⚡ Fast', 'var(--gold)', legTrack);
       }
     }
 
