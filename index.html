@@ -1226,7 +1226,7 @@ function toggleImport() {
 // ── Weather briefing via Weathered Strip ────────────────────
 function openWeatherBriefing() {
   if (!route || route.length < 2) return;
-  const stations = route.map(a => a.icao).join('%');
+  const stations = route.map(a => a.icao).join('%20');
   window.open('https://weatheredstrip.com/request?stations=' + stations, '_blank');
 }
 
