@@ -633,6 +633,23 @@ function gcInterp(lat1, lon1, lat2, lon2, t) {
   return { lat: toD(Math.atan2(z, Math.sqrt(x*x+y*y))), lon: toD(Math.atan2(y, x)) };
 }
 
+// ── Build dynamic pressure level bounds from geopotential heights ──
+// Returns array of {hpa, ft} using actual forecast geo heights at hIdx
+// Falls back to ISA standard altitudes if data not available
+function getDynamicPlBounds(key, hIdx) {
+  const data = cache[key];
+  if (!data || data.error) return null;
+  const h = data.hourly;
+  const levels = PRESSURE_LEVELS.map(lvl => {
+    if (!lvl.hpa) return { hpa: null, ft: 0 }; // surface always 0
+    const geoM = (h[`geopotential_height_${lvl.hpa}hPa`] || [])[hIdx];
+    // Geopotential height in metres → feet (1m = 3.28084ft)
+    const ft = geoM != null ? Math.round(geoM * 3.28084) : lvl.ft;
+    return { hpa: lvl.hpa, ft };
+  });
+  return levels;
+}
+
 // ── Interpolate wind at arbitrary altitude for one airport ─
 // Uses linear interpolation of speed and circular interp of direction
 // between the two surrounding pressure levels.
@@ -643,10 +660,12 @@ function getWindAtFt(icao, targetFt, hIdx) {
   // Clamp to valid range
   const ft = Math.max(0, Math.min(targetFt, 39000));
 
-  // Find bounding pressure levels using pre-built index
-  let lo = PRESSURE_LEVELS[0], hi = PRESSURE_LEVELS[PRESSURE_LEVELS.length - 1];
-  for (const [plo, phi] of PL_BOUNDS) {
-    if (ft >= plo.ft && ft <= phi.ft) { lo = plo; hi = phi; break; }
+  // Use actual geopotential heights for this station/time if available
+  const dynLevels = getDynamicPlBounds(icao, hIdx);
+  const levels = dynLevels || PRESSURE_LEVELS;
+  let lo = levels[0], hi = levels[levels.length - 1];
+  for (let i = 0; i < levels.length - 1; i++) {
+    if (ft >= levels[i].ft && ft <= levels[i + 1].ft) { lo = levels[i]; hi = levels[i + 1]; break; }
   }
 
   const wLo = getRawWind(data, lo, hIdx);
@@ -739,8 +758,12 @@ function getRawWind(data, lvl, hIdx) {
 // ── Fetch one airport (all pressure levels) ────────────────
 const WIND_VARS = (() => {
   const hpas = PRESSURE_LEVELS.filter(l => l.hpa).map(l => l.hpa);
-  return [...hpas.map(h=>`windspeed_${h}hPa`), ...hpas.map(h=>`winddirection_${h}hPa`)].join(',')
-    + ',windspeed_10m,winddirection_10m';
+  return [
+    ...hpas.map(h => `windspeed_${h}hPa`),
+    ...hpas.map(h => `winddirection_${h}hPa`),
+    ...hpas.map(h => `geopotential_height_${h}hPa`),
+    'windspeed_10m', 'winddirection_10m'
+  ].join(',');
 })();
 
 async function fetchLatLon(lat, lon, key) {
