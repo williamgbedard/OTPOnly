@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Will Bedard Quick Maths</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
@@ -51,6 +51,7 @@
   }
 
   #app { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; }
+  #app-inner { width: 100%; max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; flex: 1; }
 
   /* ── Header ── */
   header {
@@ -150,7 +151,7 @@
   .wp-arrow { color: var(--muted); font-size: 0.8rem; flex-shrink: 0; }
 
   /* ── Wind panel ── */
-  #wind-panel { padding: 0 10px 32px; flex: 1; }
+  #wind-panel { padding: 0 12px 32px; flex: 1; }
 
   /* ── Route summary card (single altitude, all airports) ── */
   .route-card {
@@ -160,7 +161,7 @@
     animation: fadeUp 0.3s ease both;
   }
   .route-card-head {
-    display: grid; grid-template-columns: 64px 1fr 60px 44px 44px 44px;
+    display: grid; grid-template-columns: minmax(52px,64px) 1fr minmax(52px,60px) minmax(36px,44px) minmax(36px,44px) minmax(36px,44px);
     padding: 8px 10px;
     background: rgba(26,58,110,0.7); border-bottom: 1px solid var(--border);
   }
@@ -169,7 +170,7 @@
     letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
   }
   .route-row {
-    display: grid; grid-template-columns: 64px 1fr 60px 44px 44px 44px;
+    display: grid; grid-template-columns: minmax(52px,64px) 1fr minmax(52px,60px) minmax(36px,44px) minmax(36px,44px) minmax(36px,44px);
     padding: 9px 10px; border-bottom: 1px solid var(--border); align-items: center;
     transition: background 0.15s; cursor: pointer;
   }
@@ -237,7 +238,7 @@
   .leg-card {
     background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px;
     overflow: hidden; backdrop-filter: blur(8px);
-    margin: 10px 16px 0;
+    margin: 10px 0 0;
     animation: fadeUp 0.3s ease both;
   }
   .leg-header {
@@ -328,6 +329,29 @@
   /* Error row */
   .err-row { padding: 10px 14px; font-family: 'DM Mono', monospace; font-size: 0.7rem; color: var(--severe); }
 
+  /* ── Responsive ── */
+  @media (min-width: 520px) {
+    header, .controls-section { padding-left: 20px; padding-right: 20px; }
+    #wind-panel { padding-left: 0; padding-right: 0; }
+    .leg-card { margin-left: 0; margin-right: 0; border-radius: 18px; }
+    .route-card { margin-left: 0; margin-right: 0; }
+    .logo { font-size: 1.7rem; }
+    .leg-title { font-size: 1.1rem; }
+    .avg-wind-line { font-size: 1.45rem; }
+  }
+  @media (min-width: 768px) {
+    header { padding: 14px 24px 12px; }
+    .controls-section { padding: 12px 24px 10px; }
+    #wind-panel { padding-bottom: 48px; }
+    .logo { font-size: 1.9rem; }
+    .rr-name, .lr-name { font-size: 0.72rem; }
+    .leg-header { padding: 10px 14px 8px; }
+    .leg-avg { padding: 8px 14px; }
+    .leg-row { padding: 7px 14px; }
+    .lr-wind { font-size: 0.82rem; }
+    .alt-ft-input { width: 46px; font-size: 0.9rem; }
+  }
+
   @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
   @keyframes spin   { to { transform: rotate(360deg); } }
 
@@ -336,7 +360,7 @@
 </head>
 <body>
 <div id="app">
-
+<div id="app-inner">
   <header>
     <div>
       <div class="logo">Will Bedard <span>Quick Maths</span></div>
@@ -389,7 +413,7 @@
   </div>
 
   <footer>Open-Meteo · Free · No API key · Each leg has its own altitude selector</footer>
-</div>
+</div><!-- /app-inner -->
 
 <script src="airports.js"></script>
 <script>
