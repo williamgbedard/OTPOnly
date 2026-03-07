@@ -785,24 +785,25 @@ const twClass = (windDir, windSpd, track) => {
 };
 
 // ── Recommend altitudes for a leg ─────────────────────────
-// Returns {bestFuel, bestTime} each: {alt, totalFuel, totalTime, gs, tas, tailwind}
-// legDistNm: leg distance, trackDeg: true track, avgWindDir/Spd: avg wind at candidate alts
-// Since wind varies by alt we use the midpoint avg wind as approximation
-function recommendAlts(legDistNm, track, windDir, windSpd, maxFt = 27000) {
-  if (!legDistNm || legDistNm <= 0 || windDir == null) return null;
+// Returns {bestFuel, bestTime} each: {alt, totalFuel, totalTimeMin, gs, tas, tailwind}
+// Samples wind at each candidate altitude individually for accuracy
+function recommendAlts(legDistNm, track, dep, arr, hIdx, maxFt = 27000) {
+  if (!legDistNm || legDistNm <= 0) return null;
   const candidates = hemisphericAlts(track, 2000, maxFt);
   let bestFuel = null, bestTime = null;
 
   for (const altFt of candidates) {
+    // Get wind specific to this altitude
+    const w = avgWindLeg(dep, arr, legDistNm, altFt, hIdx);
+    if (!w) continue;
+
     const perf = pc12AtAlt(altFt);
-    const tailwind = windComponent(windDir, windSpd ?? 0, track);
-    const gs = Math.max(perf.tas + tailwind, 30); // ground speed, min 30kt
+    const tailwind = windComponent(w.dir, w.spd ?? 0, track);
+    const gs = Math.max(perf.tas + tailwind, 30);
     const climbDist = perf.dist;
     const cruiseDist = legDistNm - climbDist;
 
-    // If leg too short to reach cruise altitude, skip
     if (cruiseDist < 0) continue;
-    // Never suggest altitude > leg distance (nm) * 100 ft + 2000 ft
     if (altFt > legDistNm * 100 + 2000) continue;
 
     const cruiseTimeHr = cruiseDist / gs;
@@ -1114,7 +1115,7 @@ function renderLegs() {
       const _avg  = (cache[dep.icao] && cache[arr.icao]) ? avgWindLeg(dep, arr, _legDist, ft ?? 10000, _hIdx2) : null;
       if (_avg && _legDist > 5) {
         const _cap = legPax[li] ? 25000 : 27000;
-        const _rec = recommendAlts(_legDist, _legTrack, _avg.dir, _avg.spd, _cap);
+        const _rec = recommendAlts(_legDist, _legTrack, dep, arr, _hIdx2, _cap);
         if (_rec) {
           const chosen = optMode === 'fuel' ? _rec.bestFuel : _rec.bestTime;
           if (chosen) ft = chosen.alt;
@@ -1179,7 +1180,7 @@ function renderLegs() {
     const avg  = avgWindLeg(dep, arr, legDist, ft, hIdx);
     const arrowRot = avg?.dir != null ? avg.dir - legTrack + 180 : 0;
     const rec = (!depLoading && !arrLoading && avg && legDist > 5)
-      ? recommendAlts(legDist, legTrack, avg.dir, avg.spd, legPax[li] ? 25000 : 27000) : null;
+      ? recommendAlts(legDist, legTrack, dep, arr, hIdx, legPax[li] ? 25000 : 27000) : null;
 
     // Avg banner
     const avgWindStr = avg
@@ -1247,10 +1248,10 @@ function renderLegs() {
           const t = mi / nIntervals;
           const pt = gcInterp(dep.lat, dep.lon, arr.lat, arr.lon, t);
           const key = `mid:${pt.lat.toFixed(3)},${pt.lon.toFixed(3)}`;
-          const midDist = Math.round(legDist * t);
+          const distToArr = Math.round(legDist * (1 - t));
           const wMid = cache[key] ? getWindAtFt(key, ft, hIdx) : null;
           const midLoading = !cache[key];
-          const midWp = { icao: `+${midDist}nm`, name: `${Math.round(pt.lat*10)/10}°N ${Math.round(Math.abs(pt.lon)*10)/10}°${pt.lon<0?'W':'E'}` };
+          const midWp = { icao: `${distToArr}nm`, name: `${Math.round(pt.lat*10)/10}°N ${Math.round(Math.abs(pt.lon)*10)/10}°${pt.lon<0?'W':'E'}` };
           html += renderRow(midWp, wMid, midLoading);
         }
       }
