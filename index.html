@@ -385,6 +385,7 @@
       <button id="opt-mode-btn" onclick="toggleOptMode()" style="background:none;border:1px solid var(--teal);color:var(--teal);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">⛽ Fuel</button>
       <button onclick="showFinalize()" style="background:none;border:1px solid var(--gold);color:var(--gold);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">📋 Finalize</button>
       <button onclick="openWeatherBriefing()" style="background:none;border:1px solid var(--teal);color:var(--teal);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">🌦 Briefing</button>
+      <button onclick="clearSession()" style="background:none;border:1px solid var(--severe);color:var(--severe);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">✕ Clear</button>
       <button id="import-toggle" onclick="toggleImport()" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">
         ＋ Import schedule
       </button>
@@ -918,6 +919,7 @@ function toggleOptMode() {
     btn.style.color = optMode === 'fuel' ? 'var(--teal)' : 'var(--gold)';
   }
   renderLegs();
+  saveSession();
 }
 
 // ── Toggle pax/no-pax for a leg ───────────────────────────
@@ -927,6 +929,7 @@ function toggleLegPax(li) {
   const cap = legPax[li] ? 25000 : 27000;
   if (legAltManual[li] && legAltFt[li] > cap) legAltManual[li] = false;
   renderLegs();
+  saveSession();
 }
 
 // ── Toggle leg expanded state ──────────────────────────────
@@ -943,6 +946,7 @@ function selectRecAlt(legIdx, altFt) {
   const inp = document.getElementById(`alt-inp-${legIdx}`);
   if (inp) inp.value = altFt / 100;
   renderLegs();
+  saveSession();
 }
 
 // ── Altitude input change for a leg ───────────────────────
@@ -953,6 +957,7 @@ function onLegAltChange(legIdx) {
     legAltFt[legIdx] = val;
     legAltManual[legIdx] = true;
     renderLegs();
+    saveSession();
   }
 }
 
@@ -971,6 +976,7 @@ function onLegTimeText(legIdx, inp) {
     legDepTime[legIdx] = `${hh}:${mm}`;
     inp.style.color = '';
     renderLegs();
+    saveSession();
   } else if (v === '') {
     legDepTime[legIdx] = null;
     inp.style.color = '';
@@ -1222,6 +1228,89 @@ function toggleImport() {
   btn.textContent = open ? '✕ Close import' : '＋ Import schedule';
 }
 
+
+// ── LocalStorage persistence ─────────────────────────────────
+const LS_KEY = 'otponly_session_v1';
+
+function saveSession() {
+  try {
+    const data = {
+      routeRaw:    document.getElementById('route-input').value,
+      legAltFt,
+      legAltManual,
+      legDepTime,
+      legPax,
+      optMode,
+      crewInfo: {
+        captain:      crewInfo.captain,
+        fo:           crewInfo.fo,
+        aircraft:     crewInfo.aircraft,
+        date:         crewInfo.date,
+        dutyStart:    crewInfo.dutyStart,
+        dutyStop:     crewInfo.dutyStop,
+        scheduleDate: crewInfo.scheduleDate ? crewInfo.scheduleDate.toISOString() : null,
+      },
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+  } catch(e) {}
+}
+
+function loadSession() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (!data.routeRaw) return;
+
+    // Restore opt mode first so button label is right
+    if (data.optMode) {
+      optMode = data.optMode;
+      const btn = document.getElementById('opt-mode-btn');
+      if (btn) {
+        btn.textContent   = optMode === 'fuel' ? '⛽ Fuel' : '⚡ Speed';
+        btn.style.borderColor = optMode === 'fuel' ? 'var(--teal)' : 'var(--gold)';
+        btn.style.color       = optMode === 'fuel' ? 'var(--teal)' : 'var(--gold)';
+      }
+    }
+
+    // Restore crew info
+    if (data.crewInfo) {
+      crewInfo.captain   = data.crewInfo.captain   || '';
+      crewInfo.fo        = data.crewInfo.fo        || '';
+      crewInfo.aircraft  = data.crewInfo.aircraft  || '';
+      crewInfo.date      = data.crewInfo.date      || '';
+      crewInfo.dutyStart = data.crewInfo.dutyStart || '';
+      crewInfo.dutyStop  = data.crewInfo.dutyStop  || '';
+      crewInfo.scheduleDate = data.crewInfo.scheduleDate
+        ? new Date(data.crewInfo.scheduleDate)
+        : null;
+    }
+
+    // Restore per-leg arrays before calling handleGo so they survive the resize
+    if (Array.isArray(data.legAltFt))     legAltFt     = data.legAltFt;
+    if (Array.isArray(data.legAltManual)) legAltManual = data.legAltManual;
+    if (Array.isArray(data.legDepTime))   legDepTime   = data.legDepTime;
+    if (Array.isArray(data.legPax))       legPax       = data.legPax;
+
+    // Restore route input and trigger load
+    const input = document.getElementById('route-input');
+    input.value = data.routeRaw;
+    handleGo();
+  } catch(e) {}
+}
+
+function clearSession() {
+  try { localStorage.removeItem(LS_KEY); } catch(e) {}
+  // Reset all state
+  route = []; legAltFt = []; legAltManual = []; legDepTime = [];
+  legPax = []; legExpanded = []; legMidKeys = [];
+  optMode = 'fuel';
+  crewInfo = { captain:'', fo:'', aircraft:'', date:'', dutyStart:'', dutyStop:'', scheduleDate:null };
+  document.getElementById('route-input').value = '';
+  document.getElementById('legs-container').innerHTML = '';
+  const btn = document.getElementById('opt-mode-btn');
+  if (btn) { btn.textContent = '⛽ Fuel'; btn.style.borderColor = 'var(--teal)'; btn.style.color = 'var(--teal)'; }
+}
 
 // ── Weather briefing via Weathered Strip ────────────────────
 function openWeatherBriefing() {
@@ -1483,11 +1572,15 @@ async function handleGo() {
   }
 
   btn.classList.remove('loading');
+  saveSession();
 }
 
 document.getElementById('route-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') handleGo();
 });
+
+// ── Restore session on page load ─────────────────────────
+loadSession();
 </script>
 </body>
 </html>
