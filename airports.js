@@ -119,7 +119,7 @@ const AIRPORTS = [
   {icao:"CYYW", name:"Armstrong",                               lat:50.29389, lon:-88.91000},
   {icao:"CYQN", name:"Nakina",                                  lat:50.18278, lon:-86.69639},
   {icao:"CYRL", name:"Red Lake",                                lat:51.06500, lon:-93.79472},
-  {icao:"CKD9",  name:"Slate Falls",                               lat:51.1300,  lon:-91.6656},
+  {icao:"CKD9", name:"Slate Falls",                             lat:51.1300,  lon:-91.6656},
   {icao:"CYPL", name:"Pickle Lake",                             lat:51.44639, lon:-90.21361},
   {icao:"CYIB", name:"Atikokan Municipal",                      lat:48.77417, lon:-91.63889},
   // Far North
@@ -158,7 +158,7 @@ const AIRPORTS = [
   {icao:"CYMX", name:"Montréal-Mirabel Intl",        lat:45.6795,  lon:-74.0386},
   {icao:"CYBG", name:"Bagotville (CFB)",             lat:48.3308,  lon:-70.9964},
   {icao:"CYBC", name:"Baie-Comeau",                  lat:49.1325,  lon:-68.2044},
-  {icao:"CYGR", name:"Îles-de-la-Madeleine",        lat:47.4247,  lon:-61.7781},
+  {icao:"CYGR", name:"Îles-de-la-Madeleine",         lat:47.4247,  lon:-61.7781},
   {icao:"CYVP", name:"Kuujjuaq",                     lat:58.0961,  lon:-68.4269},
   {icao:"CYGW", name:"Kuujjuarapik",                 lat:55.2819,  lon:-77.7653},
   {icao:"CYMT", name:"Chibougamau/Chapais",          lat:49.7717,  lon:-74.5281},
