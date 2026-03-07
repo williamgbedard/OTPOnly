@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Will Bedard Quick Maths</title>
+<title>OTPOnly</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
@@ -363,10 +363,10 @@
 <div id="app-inner">
   <header>
     <div>
-      <div class="logo">Will Bedard <span>Quick Maths</span></div>
+      <div class="logo">OTP<span>Only</span></div>
       <div class="logo-sub">Canada Route Winds</div>
     </div>
-    <div class="utc-time" id="utc-clock">--:-- UTC</div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0"><div class="utc-time" id="utc-clock">--:-- UTC</div><span id="stale-indicator" style="display:none;font-family:'DM Mono',monospace;font-size:0.52rem;color:var(--moderate);letter-spacing:0.08em"></span></div>
   </header>
 
   <!-- Route + altitude input -->
@@ -439,6 +439,7 @@ const PL_BOUNDS = PRESSURE_LEVELS.slice(0, -1).map((lo, i) => [lo, PRESSURE_LEVE
 
 // ── State ──────────────────────────────────────────────────
 let cache      = {};
+let cacheTime  = {};  // timestamp (ms) when each key was fetched
 let route      = [];   // [{icao,name,lat,lon} | {icao,error:true}]
 let legAltFt   = [];   // per-leg altitude in feet (user typed)
 let legDepTime = [];   // per-leg departure time as "HH:MM" local string (or null = now)
@@ -450,6 +451,38 @@ let legMidKeys = []; // pre-computed midpoint cache keys per leg (avoids gcInter
 let crewInfo = { captain: '', fo: '', aircraft: '', date: '', dutyStart: '', dutyStop: '' }; // parsed from email
 
 // ── Clock ──────────────────────────────────────────────────
+function checkCacheStale() {
+  const now = Date.now();
+  // Invalidate if fetched before midnight UTC today (data rolled over)
+  const midnight = new Date();
+  midnight.setUTCHours(0, 0, 0, 0);
+  let invalidated = false;
+  for (const key of Object.keys(cacheTime)) {
+    if (cacheTime[key] < midnight.getTime()) {
+      delete cache[key];
+      delete cacheTime[key];
+      invalidated = true;
+    }
+  }
+  // Also clear memoized hIdx cache so "now" recalculates
+  if (Object.keys(_hIdxCache).length) {
+    for (const k of Object.keys(_hIdxCache)) {
+      if (k === '__now__') delete _hIdxCache[k];
+    }
+  }
+  if (invalidated) renderLegs();
+  // Show stale indicator if oldest fetch > 2 hours ago
+  const times = Object.values(cacheTime);
+  const oldest = times.length ? Math.min(...times) : null;
+  const staleEl = document.getElementById('stale-indicator');
+  if (staleEl) {
+    const ageMin = oldest ? Math.round((now - oldest) / 60000) : 0;
+    staleEl.style.display = (oldest && ageMin > 120) ? 'inline' : 'none';
+    if (oldest && ageMin > 120) staleEl.textContent = `⚠ winds ${ageMin}m old`;
+  }
+}
+setInterval(checkCacheStale, 60000);
+
 function tickClock() {
   const m = new Date().toUTCString().match(/\d{2}:\d{2}:\d{2}/);
   document.getElementById('utc-clock').textContent = (m ? m[0] : '--:--') + ' UTC';
@@ -698,9 +731,15 @@ function getWindAtFt(icao, targetFt, hIdx) {
   if (!wLo) return wHi;
   if (!wHi) return wLo;
 
-  // Interpolation factor (0 = at lo, 1 = at hi)
-  const range = hi.ft - lo.ft;
-  const t = range === 0 ? 0 : (ft - lo.ft) / range;
+  // Log-pressure interpolation factor (0 = at lo, 1 = at hi)
+  // Wind varies more linearly with log(pressure) than with altitude
+  const loP = lo.hpa || 1013.25;
+  const hiP = hi.hpa || 1013.25;
+  const ftP = loP === hiP ? loP : Math.exp(
+    Math.log(loP) + (Math.log(hiP) - Math.log(loP)) * ((ft - lo.ft) / (hi.ft - lo.ft || 1))
+  );
+  const range = Math.log(hiP) - Math.log(loP);
+  const t = range === 0 ? 0 : (Math.log(ftP) - Math.log(loP)) / range;
 
   // Speed: linear
   const spd = wLo.spd != null && wHi.spd != null
@@ -728,6 +767,11 @@ function getWindAtFt(icao, targetFt, hIdx) {
 // depTime: "HH:MM" Zulu (UTC), or null (= current time)
 // Returns the index into Open-Meteo hourly arrays (0 = first hour of day 1)
 const _hIdxCache = {};
+function offsetHIdx(hIdx, hours) {
+  // Offset an hourly index by fractional hours, clamped to 0–71
+  return Math.max(0, Math.min(71, Math.round(hIdx + hours)));
+}
+
 function timeToHourlyIdx(depTime) {
   const key = depTime ?? '__now__';
   // Only cache non-"now" lookups (now changes every minute, depTime is static)
@@ -795,11 +839,16 @@ async function fetchLatLon(lat, lon, key) {
   const url = `https://api.open-meteo.com/v1/forecast`
     + `?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}`
     + `&hourly=${WIND_VARS}&wind_speed_unit=ms&forecast_days=3`;
-  const r = await fetch(url);
+  let r;
+  try { r = await fetch(url); }
+  catch (e) { throw new Error(`Network error: ${e.message}`); }
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  const json = await r.json();
-  if (!json.hourly) throw new Error('No hourly data');
+  let json;
+  try { json = await r.json(); }
+  catch (e) { throw new Error('Invalid JSON from Open-Meteo'); }
+  if (!json || !json.hourly) throw new Error('No hourly data in response');
   cache[key] = json;
+  cacheTime[key] = Date.now();
 }
 
 async function fetchAirport(ap) {
@@ -1035,7 +1084,11 @@ function renderLegs() {
     const depLoading = !cache[dep.icao];
     const arrLoading = !cache[arr.icao];
     const wDep = getWindAtFt(dep.icao, ft, hIdx);
-    const wArr = getWindAtFt(arr.icao, ft, hIdx);
+    // Estimate arrival hIdx by offsetting dep hIdx by approximate flight time
+    const estGs = 240; // rough GS for hIdx offset — refined after winds known
+    const estFlightHr = legDist > 0 ? legDist / estGs : 0;
+    const arrHIdx = offsetHIdx(hIdx, estFlightHr);
+    const wArr = getWindAtFt(arr.icao, ft, arrHIdx);
     const avg  = avgWindLeg(dep, arr, legDist, ft, hIdx, li);
     const arrowRot = avg?.dir != null ? avg.dir - legTrack + 180 : 0;
     const rec = (!depLoading && !arrLoading && avg && legDist > 5)
@@ -1080,7 +1133,9 @@ function renderLegs() {
         midKeys.forEach((key, mi) => {
           const t = (mi + 1) / nIntervals;
           const distToArr = Math.round(legDist * (1 - t));
-          const wMid = cache[key] ? getWindAtFt(key, ft, hIdx) : null;
+          const midFlightHr = legDist > 0 ? (legDist * (1 - (mi + 1) / (midKeys.length + 1))) / estGs : 0;
+          const midHIdx = offsetHIdx(hIdx, estFlightHr - midFlightHr);
+          const wMid = cache[key] ? getWindAtFt(key, ft, midHIdx) : null;
           const midLoading = !cache[key];
           const [mlat, mlon] = key.replace('mid:','').split(',').map(Number);
           const midWp = { icao: `${distToArr}nm`, name: `${Math.round(mlat*10)/10}°N ${Math.round(Math.abs(mlon)*10)/10}°${mlon<0?'W':'E'}` };
@@ -1095,7 +1150,39 @@ function renderLegs() {
     html += `</div>`;
   }
 
-  panel.innerHTML = html;
+  // ── Route fuel & time summary ─────────────────────────────
+  let summaryHtml = '';
+  if (route.length >= 2) {
+    let totalFuelSum = 0, totalTimeSum = 0, legsWithData = 0;
+    for (let li = 0; li < route.length - 1; li++) {
+      const dep = route[li], arr = route[li + 1];
+      if (dep.error || arr.error) continue;
+      const legDistS  = distNm(dep.lat, dep.lon, arr.lat, arr.lon);
+      const hIdxS     = timeToHourlyIdx(legDepTime[li] ?? null);
+      const capS      = legPax[li] ? 25000 : 27000;
+      const recS      = (cache[dep.icao] && cache[arr.icao] && legDistS > 5)
+        ? recommendAlts(legDistS, trackDeg(dep.lat,dep.lon,arr.lat,arr.lon), dep, arr, hIdxS, capS, li)
+        : null;
+      const best = recS ? (optMode === 'fuel' ? recS.bestFuel : recS.bestTime) : null;
+      if (best) { totalFuelSum += best.totalFuel; totalTimeSum += best.totalTimeMin; legsWithData++; }
+    }
+    if (legsWithData > 0) {
+      const hrs  = Math.floor(totalTimeSum / 60);
+      const mins = totalTimeSum % 60;
+      const allLegs = route.length - 1;
+      const partial  = legsWithData < allLegs
+        ? `<span style="font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--muted);opacity:0.6"> ${legsWithData}/${allLegs} legs</span>` : '';
+      summaryHtml = `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;margin:10px 0 4px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:14px;backdrop-filter:blur(8px)">
+        <span style="font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase">Route Total${partial}</span>
+        <span style="display:flex;gap:20px;align-items:baseline">
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--teal);letter-spacing:0.05em">${Math.round(totalFuelSum)}<span style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);margin-left:3px">lb</span></span>
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--teal);letter-spacing:0.05em">${hrs}h ${String(mins).padStart(2,'0')}m</span>
+        </span>
+      </div>`;
+    }
+  }
+
+  panel.innerHTML = html + summaryHtml;
 }
 
 // ── Schedule import ────────────────────────────────────────
