@@ -1250,11 +1250,39 @@ function showFinalize() {
   modal.style.display = 'flex';
 }
 
+function tsvToHtmlTable(tsv) {
+  // Convert TSV text to an HTML table that Numbers can parse correctly on iPad
+  const rows = tsv.split('\n');
+  let html = '<table>';
+  for (const row of rows) {
+    html += '<tr>';
+    const cells = row.split('\t');
+    for (const cell of cells) {
+      html += `<td>${cell.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</table>';
+  return html;
+}
+
 function copyFinalize() {
   const text = document.getElementById('finalize-text').value;
   const s = document.getElementById('finalize-copy-status');
-  // Try modern clipboard API first, fall back to execCommand for file:// on iOS Safari
-  if (navigator.clipboard && navigator.clipboard.writeText) {
+  const htmlTable = tsvToHtmlTable(text);
+
+  // Write both text/plain (TSV) and text/html (table) to clipboard
+  // Numbers on iPad will prefer text/html and parse cells correctly
+  if (navigator.clipboard && window.ClipboardItem) {
+    const item = new ClipboardItem({
+      'text/plain': new Blob([text], { type: 'text/plain' }),
+      'text/html':  new Blob([htmlTable], { type: 'text/html' }),
+    });
+    navigator.clipboard.write([item]).then(() => {
+      s.textContent = '✓ Copied — select A2 in Numbers and paste';
+      setTimeout(() => s.textContent = '', 3000);
+    }).catch(() => fallbackCopy(text, s));
+  } else if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(() => {
       s.textContent = '✓ Copied — select A2 in Numbers and paste';
       setTimeout(() => s.textContent = '', 3000);
