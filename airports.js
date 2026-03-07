@@ -221,4 +221,5 @@ const AIRPORTS = [
   {icao:"CYVM", name:"Qikiqtarjuaq",                 lat:67.5458,  lon:-64.0314},
   {icao:"CYLT", name:"Alert",                        lat:82.5178,  lon:-62.2806},
   {icao:"CYHK", name:"Gjoa Haven",                   lat:68.6356,  lon:-95.8497},
+  {icao:"CKD9", name:"Slate Falls",               lat:51.1300, lon:-91.6656},
 ];
