@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<!-- v2 - CYXL CYAC CYVZ CPV7 added -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Will Bedard Quick Maths</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --sky-dark:   #0a0f1e;
+    --sky-mid:    #0d1b3e;
+    --horizon:    #0e4d8c;
+    --gold:       #f0c040;
+    --gold-dim:   #a07820;
+    --teal:       #00d4b8;
+    --teal-dim:   #007a6a;
+    --white:      #f0f4ff;
+    --muted:      #6b7fa8;
+    --calm:       #00e676;
+    --moderate:   #ffee58;
+    --strong:     #ff9800;
+    --severe:     #f44336;
+    --card-bg:    rgba(13,27,62,0.85);
+    --border:     rgba(100,140,220,0.18);
+  }
+
+  html, body { height: 100%; background: var(--sky-dark); color: var(--white); font-family: 'DM Sans', sans-serif; overflow-x: hidden; }
+
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 10%, rgba(14,77,140,0.5) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 80%, rgba(0,212,184,0.08) 0%, transparent 60%),
+      linear-gradient(160deg, #0a0f1e 0%, #0d1b3e 40%, #071528 100%);
+    z-index: 0; pointer-events: none;
+  }
+  body::after {
+    content: ''; position: fixed; inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 15% 20%, rgba(255,255,255,0.6) 0%, transparent 100%),
+      radial-gradient(1px 1px at 45% 8%,  rgba(255,255,255,0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 72% 15%, rgba(255,255,255,0.5) 0%, transparent 100%),
+      radial-gradient(1px 1px at 88% 35%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 5%  60%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 92% 12%, rgba(240,192,64,0.5) 0%, transparent 100%);
+    z-index: 0; pointer-events: none;
+  }
+
+  #app { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* ── Header ── */
+  header {
+    padding: 12px 12px 10px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,15,30,0.7);
+    backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 100;
+    gap: 12px;
+  }
+  .logo { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 0.06em; line-height: 1; flex-shrink: 0; }
+  .logo span { color: var(--teal); }
+  .logo-sub { font-family: 'DM Mono', monospace; font-size: 0.55rem; color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; }
+  .utc-time { font-family: 'DM Mono', monospace; font-size: 0.65rem; color: var(--teal); letter-spacing: 0.08em; text-align: right; flex-shrink: 0; }
+
+  /* ── Route input section ── */
+  #route-section {
+    padding: 10px 12px 8px;
+    background: rgba(10,15,30,0.5);
+    border-bottom: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+
+  .input-row { display: flex; gap: 8px; align-items: stretch; }
+
+  #route-input {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--white);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.9rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+  #route-input::placeholder { color: var(--muted); text-transform: none; font-size: 0.8rem; letter-spacing: 0; }
+  #route-input:focus { border-color: var(--teal); }
+
+  #go-btn {
+    background: var(--teal); color: var(--sky-dark);
+    border: none; border-radius: 10px;
+    padding: 10px 18px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 700;
+    cursor: pointer; transition: background 0.2s, transform 0.1s;
+    letter-spacing: 0.04em; white-space: nowrap; flex-shrink: 0;
+  }
+  #go-btn:active { transform: scale(0.96); }
+  #go-btn.loading { background: var(--teal-dim); pointer-events: none; }
+
+  /* ── Altitude picker ── */
+  .alt-label-row {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .alt-label-row label {
+    font-family: 'DM Mono', monospace; font-size: 0.6rem;
+    letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted);
+    flex-shrink: 0;
+  }
+  #alt-chips {
+    display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; flex: 1;
+  }
+  #alt-chips::-webkit-scrollbar { display: none; }
+  .alt-chip {
+    flex-shrink: 0;
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px;
+    padding: 4px 10px;
+    font-family: 'DM Mono', monospace; font-size: 0.7rem; color: var(--muted);
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .alt-chip.active { background: rgba(0,212,184,0.15); border-color: var(--teal); color: var(--teal); font-weight: 500; }
+  .alt-chip:active { transform: scale(0.94); }
+
+  /* ── Route chips (waypoints) ── */
+  #route-chips {
+    display: flex; gap: 6px; padding: 10px 16px 6px;
+    overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    align-items: center;
+  }
+  #route-chips::-webkit-scrollbar { display: none; }
+  .wp-chip {
+    flex-shrink: 0;
+    display: flex; align-items: center; gap: 5px;
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 5px 10px;
+    font-family: 'DM Mono', monospace; font-size: 0.75rem; color: var(--muted);
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .wp-chip.active { background: rgba(240,192,64,0.15); border-color: var(--gold); color: var(--gold); }
+  .wp-chip.error  { background: rgba(244,67,54,0.1);  border-color: var(--severe); color: var(--severe); cursor: default; }
+  .wp-chip:not(.error):active { transform: scale(0.94); }
+  .wp-arrow { color: var(--muted); font-size: 0.8rem; flex-shrink: 0; }
+
+  /* ── Wind panel ── */
+  #wind-panel { padding: 0 10px 32px; flex: 1; }
+
+  /* ── Route summary card (single altitude, all airports) ── */
+  .route-card {
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px;
+    overflow: hidden; backdrop-filter: blur(8px);
+    margin-top: 12px;
+    animation: fadeUp 0.3s ease both;
+  }
+  .route-card-head {
+    display: grid; grid-template-columns: 64px 1fr 60px 44px 44px 44px;
+    padding: 8px 10px;
+    background: rgba(26,58,110,0.7); border-bottom: 1px solid var(--border);
+  }
+  .route-card-head span {
+    font-family: 'DM Mono', monospace; font-size: 0.56rem;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+  }
+  .route-row {
+    display: grid; grid-template-columns: 64px 1fr 60px 44px 44px 44px;
+    padding: 9px 10px; border-bottom: 1px solid var(--border); align-items: center;
+    transition: background 0.15s; cursor: pointer;
+  }
+  .route-row:last-child { border-bottom: none; }
+  .route-row.active-row { background: rgba(240,192,64,0.07); }
+  .route-row:active { background: rgba(255,255,255,0.04); }
+
+  .rr-icao { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 0.06em; color: var(--gold); }
+  .rr-name { font-size: 0.68rem; color: var(--muted); font-weight: 300; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 6px; }
+  .rr-spd  { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: 0.04em; text-align: center; }
+  .rr-spd .kt { font-family: 'DM Mono', monospace; font-size: 0.55rem; color: var(--muted); }
+  .rr-dir  { font-family: 'DM Mono', monospace; font-size: 0.72rem; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .rr-dir .deg { font-size: 0.58rem; color: var(--muted); }
+  .rr-card { font-family: 'DM Mono', monospace; font-size: 0.7rem; color: var(--muted); text-align: center; }
+
+  /* Detail panel (single airport expanded) */
+  .detail-header {
+    padding: 14px 0 8px; display: flex; align-items: baseline; gap: 10px;
+  }
+  .ap-icao { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 0.1em; color: var(--gold); line-height: 1; }
+  .ap-name { font-size: 0.82rem; color: var(--muted); font-weight: 300; }
+  .surface-card {
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px 16px; margin-bottom: 10px; backdrop-filter: blur(8px);
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+    animation: fadeUp 0.25s ease both;
+  }
+  .surface-card .slabel {
+    grid-column: 1/-1; font-family: 'DM Mono', monospace; font-size: 0.58rem;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--teal);
+    border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 2px;
+  }
+  .stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .stat-val { font-family: 'Bebas Neue', sans-serif; font-size: 1.7rem; line-height: 1; letter-spacing: 0.05em; }
+  .stat-unit { font-family: 'DM Mono', monospace; font-size: 0.55rem; color: var(--muted); letter-spacing: 0.14em; text-transform: uppercase; }
+
+  .highlight-row {
+    background: rgba(0,212,184,0.08); border: 1px solid rgba(0,212,184,0.25);
+    border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;
+    display: flex; align-items: center; justify-content: space-between;
+    animation: fadeUp 0.28s ease both;
+  }
+  .highlight-label { font-family: 'DM Mono', monospace; font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--teal); }
+  .highlight-val   { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--teal); line-height: 1; }
+  .highlight-sub   { font-family: 'DM Mono', monospace; font-size: 0.65rem; color: var(--muted); }
+
+  /* Status / empty */
+  .status-msg { text-align: center; padding: 48px 24px; font-family: 'DM Mono', monospace; font-size: 0.78rem; color: var(--muted); letter-spacing: 0.1em; }
+  .status-msg .icon { font-size: 2.2rem; display: block; margin-bottom: 12px; }
+
+  /* Legend */
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; padding: 8px 16px 0; }
+  .leg { display: flex; align-items: center; gap: 5px; font-size: 0.62rem; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .leg-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+  /* Colours */
+  .spd-calm     { color: var(--calm); }
+  .spd-moderate { color: var(--moderate); }
+  .spd-strong   { color: var(--strong); }
+  .spd-severe   { color: var(--severe); }
+
+  .gust-tag { display: inline-block; background: rgba(244,67,54,0.15); border: 1px solid rgba(244,67,54,0.3); color: var(--severe); font-family: 'DM Mono', monospace; font-size: 0.58rem; padding: 1px 4px; border-radius: 3px; margin-left: 3px; }
+
+  /* ── Leg cards ── */
+  .leg-card {
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px;
+    overflow: hidden; backdrop-filter: blur(8px);
+    margin: 10px 16px 0;
+    animation: fadeUp 0.3s ease both;
+  }
+  .leg-header {
+    display: flex; flex-wrap: wrap; align-items: center;
+    padding: 8px 10px 6px;
+    background: rgba(26,58,110,0.6); border-bottom: 1px solid var(--border);
+    gap: 6px;
+  }
+  .leg-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 0.08em;
+    color: var(--gold); white-space: nowrap; flex-shrink: 0; min-width: 0;
+  }
+  .leg-title .leg-arrow { color: var(--muted); margin: 0 4px; font-size: 0.9rem; }
+  .leg-alt-chips {
+    display: flex; gap: 5px; overflow-x: auto; scrollbar-width: none; flex: 1;
+    -webkit-overflow-scrolling: touch;
+  }
+  .leg-alt-chips::-webkit-scrollbar { display: none; }
+  .lac {
+    flex-shrink: 0;
+    background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 12px;
+    padding: 3px 8px;
+    font-family: 'DM Mono', monospace; font-size: 0.62rem; color: var(--muted);
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .lac.active { background: rgba(0,212,184,0.15); border-color: var(--teal); color: var(--teal); }
+  .lac:active { transform: scale(0.93); }
+
+  /* Altitude number input */
+  .leg-alt-input-wrap {
+    display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+  }
+  .alt-ft-input {
+    width: 44px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid var(--teal);
+    border-radius: 8px;
+    padding: 4px 8px;
+    color: var(--teal);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-align: right;
+    outline: none;
+    -webkit-appearance: none;
+    -moz-appearance: textfield;
+  }
+  .alt-ft-input::-webkit-inner-spin-button,
+  .alt-ft-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .alt-ft-input:focus { border-color: var(--gold); color: var(--gold); }
+  .alt-ft-unit {
+    font-family: 'DM Mono', monospace; font-size: 0.65rem; color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* Avg wind banner */
+  .leg-avg {
+    padding: 6px 10px; border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,0.15);
+  }
+  .leg-avg-label {
+    font-family: 'DM Mono', monospace; font-size: 0.52rem;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--teal);
+    margin-bottom: 4px;
+  }
+  .avg-wind-line {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; letter-spacing: 0.05em;
+  }
+  .avg-wind-sep { color: var(--muted); font-size: 1rem; }
+
+  /* Per-airport rows inside leg */
+  .leg-row {
+    display: flex; align-items: center; gap: 0;
+    padding: 5px 10px; border-bottom: 1px solid var(--border);
+  }
+  .leg-row:last-child { border-bottom: none; }
+  .lr-icao { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; color: var(--gold); letter-spacing: 0.08em; flex-shrink: 0; width: 52px; }
+  .lr-name { font-size: 0.62rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; padding-right: 6px; }
+  .lr-wind { font-family: 'DM Mono', monospace; font-size: 0.78rem; white-space: nowrap; flex-shrink: 0; display: flex; align-items: center; gap: 5px; }
+
+  /* Leg endpoint rows container */
+  .leg-rows { overflow: hidden; }
+  .leg-avg { cursor: pointer; user-select: none; }
+  .leg-avg:hover { background: rgba(0,0,0,0.25); }
+  .expand-hint { font-family: 'DM Mono', monospace; font-size: 0.5rem; color: var(--muted); margin-left: 6px; opacity: 0.6; }
+
+  /* Error row */
+  .err-row { padding: 10px 14px; font-family: 'DM Mono', monospace; font-size: 0.7rem; color: var(--severe); }
+
+  @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes spin   { to { transform: rotate(360deg); } }
+
+  footer { text-align: center; padding: 14px; font-family: 'DM Mono', monospace; font-size: 0.58rem; color: var(--muted); opacity: 0.45; letter-spacing: 0.1em; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div>
+      <div class="logo">Will Bedard <span>Quick Maths</span></div>
+      <div class="logo-sub">Canada Route Winds</div>
+    </div>
+    <div class="utc-time" id="utc-clock">--:-- UTC</div>
+  </header>
+
+  <!-- Route + altitude input -->
+  <div id="route-section">
+    <div class="input-row">
+      <input id="route-input" type="text" placeholder="e.g. CYXL CYAC CYVZ CPV7" autocomplete="off" autocorrect="off" spellcheck="false" />
+      <button id="go-btn" onclick="handleGo()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="display:inline;vertical-align:middle;margin-right:4px">
+          <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+        </svg>Load
+      </button>
+    </div>
+    <!-- Schedule import -->
+    <div id="import-section">
+      <div style="display:flex;gap:6px;margin-top:6px;align-items:center">
+      <button id="opt-mode-btn" onclick="toggleOptMode()" style="background:none;border:1px solid var(--teal);color:var(--teal);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">⛽ Fuel</button>
+      <button onclick="showFinalize()" style="background:none;border:1px solid var(--gold);color:var(--gold);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">📋 Finalize</button>
+      <button id="import-toggle" onclick="toggleImport()" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">
+        ＋ Import schedule
+      </button>
+      </div>
+      <div id="import-panel" style="display:none;margin-top:8px">
+        <textarea id="schedule-input" placeholder="Paste schedule table:&#10;Origin  Destination  Departure  Arrival&#10;YQT     YAT          13:15      15:05&#10;YAT     YQT          20:50      22:40"
+          style="width:100%;height:110px;background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:8px;color:var(--white);font-family:'DM Mono',monospace;font-size:0.7rem;padding:10px;resize:vertical;outline:none;line-height:1.6"
+          spellcheck="false"></textarea>
+        <button onclick="importSchedule()" style="margin-top:6px;background:var(--teal);color:#000;border:none;border-radius:8px;padding:7px 18px;font-size:0.75rem;font-weight:600;cursor:pointer;letter-spacing:.04em">
+          Import &amp; Load
+        </button>
+        <span id="import-status" style="margin-left:10px;font-size:0.65rem;color:var(--muted)"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="leg"><div class="leg-dot" style="background:var(--calm)"></div>&lt;15 kts</div>
+    <div class="leg"><div class="leg-dot" style="background:var(--moderate)"></div>15–30</div>
+    <div class="leg"><div class="leg-dot" style="background:var(--strong)"></div>30–50</div>
+    <div class="leg"><div class="leg-dot" style="background:var(--severe)"></div>50+</div>
+  </div>
+
+  <div id="wind-panel">
+    <div class="status-msg"><span class="icon">✈️</span>Enter your route above<br><small>e.g. CYXL CYAC CYVZ CPV7</small></div>
+  </div>
+
+  <footer>Open-Meteo · Free · No API key · Each leg has its own altitude selector</footer>
+</div>
+
+<script>
+const AIRPORTS = [
+  // ── BRITISH COLUMBIA ──────────────────────────────
+  {icao:"CYVR", name:"Vancouver Intl",               lat:49.1947,  lon:-123.1792},
+  {icao:"CYYJ", name:"Victoria Intl",                lat:48.6469,  lon:-123.4258},
+  {icao:"CYXX", name:"Abbotsford Intl",              lat:49.0253,  lon:-122.3608},
+  {icao:"CYCD", name:"Nanaimo",                      lat:49.0525,  lon:-123.8700},
+  {icao:"CYBL", name:"Campbell River",               lat:49.9508,  lon:-125.2711},
+  {icao:"CYCG", name:"Castlegar (West Kootenay)",    lat:49.2964,  lon:-117.6325},
+  {icao:"CYDQ", name:"Dawson Creek",                 lat:55.7428,  lon:-120.1828},
+  {icao:"CYXS", name:"Prince George",                lat:53.8894,  lon:-122.6792},
+  {icao:"CYXT", name:"Terrace",                      lat:54.4686,  lon:-128.5761},
+  {icao:"CYPR", name:"Prince Rupert",                lat:54.2861,  lon:-130.4450},
+  {icao:"CYQZ", name:"Quesnel",                      lat:53.0261,  lon:-122.5103},
+  {icao:"CYWL", name:"Williams Lake",                lat:52.1831,  lon:-122.0542},
+  {icao:"CYAZ", name:"Tofino-Long Beach",            lat:49.0797,  lon:-125.7756},
+  {icao:"CYLW", name:"Kelowna Intl",                 lat:49.9561,  lon:-119.3775},
+  {icao:"CYKA", name:"Kamloops",                     lat:50.7022,  lon:-120.4442},
+  {icao:"CYXC", name:"Cranbrook (Canadian Rockies)", lat:49.6108,  lon:-115.7819},
+  {icao:"CYPE", name:"Peace River",                  lat:56.2269,  lon:-117.4469},
+  {icao:"CYDL", name:"Dease Lake",                   lat:58.4222,  lon:-130.0317},
+  // ── ALBERTA ───────────────────────────────────────
+  {icao:"CYYC", name:"Calgary Intl",                 lat:51.1139,  lon:-114.0200},
+  {icao:"CYEG", name:"Edmonton Intl",                lat:53.3097,  lon:-113.5797},
+  {icao:"CYXD", name:"Edmonton City (Blatchford)",   lat:53.5725,  lon:-113.5208},
+  {icao:"CYLH", name:"Lloydminster",                 lat:53.3092,  lon:-110.0728},
+  {icao:"CYOD", name:"Cold Lake",                    lat:54.4047,  lon:-110.2789},
+  {icao:"CYGP", name:"Grande Prairie",               lat:55.1797,  lon:-118.8850},
+  {icao:"CYQF", name:"Red Deer Regional",            lat:52.1822,  lon:-113.8942},
+  {icao:"CYMM", name:"Fort McMurray Intl",           lat:56.6533,  lon:-111.2219},
+  {icao:"CYQL", name:"Lethbridge County",            lat:49.6300,  lon:-112.8000},
+  {icao:"CYET", name:"Edson",                        lat:53.5789,  lon:-116.4647},
+  // ── SASKATCHEWAN ──────────────────────────────────
+  {icao:"CYQR", name:"Regina Intl",                  lat:50.4319,  lon:-104.6661},
+  {icao:"CYXE", name:"Saskatoon (J.G. Diefenbaker)", lat:52.1708,  lon:-106.6997},
+  {icao:"CYPA", name:"Prince Albert (Glass Field)",  lat:53.2142,  lon:-105.6728},
+  {icao:"CYVC", name:"La Ronge",                     lat:55.1514,  lon:-105.2622},
+  {icao:"CYBU", name:"Nipawin",                      lat:53.3325,  lon:-104.0081},
+  {icao:"CYEN", name:"Estevan Regional",             lat:49.2103,  lon:-102.9664},
+  {icao:"CYYN", name:"Swift Current",                lat:50.2919,  lon:-107.6911},
+  {icao:"CYMJ", name:"Moose Jaw (McEwen)",           lat:50.3303,  lon:-105.5589},
+  {icao:"CYQV", name:"Yorkton Municipal",            lat:51.2644,  lon:-102.4614},
+  {icao:"CYBE", name:"Uranium City",                 lat:59.5614,  lon:-108.4811},
+  // ── MANITOBA ──────────────────────────────────────
+  {icao:"CYWG", name:"Winnipeg (J.A. Richardson)",   lat:49.9100,  lon:-97.2400},
+  {icao:"CYBR", name:"Brandon Municipal",            lat:49.9100,  lon:-99.9519},
+  {icao:"CYTH", name:"Thompson",                     lat:55.8011,  lon:-97.8642},
+  {icao:"CYFO", name:"Flin Flon",                    lat:54.6781,  lon:-101.6817},
+  {icao:"CYCR", name:"Cross Lake",                   lat:54.6106,  lon:-97.7608},
+  {icao:"CYDN", name:"Dauphin (Billy Barker VC)",    lat:51.1008,  lon:-100.0522},
+  {icao:"CYBV", name:"Berens River",                 lat:52.3589,  lon:-97.0183},
+  // ── ONTARIO ─────────────────────────────────────────────────
+  // Major Hubs
+  {icao:"CYYZ", name:"Toronto Pearson Intl",                    lat:43.67611, lon:-79.63056},
+  {icao:"CYTZ", name:"Toronto Billy Bishop City",               lat:43.62750, lon:-79.39611},
+  {icao:"CYOW", name:"Ottawa Macdonald-Cartier Intl",           lat:45.32250, lon:-75.66917},
+  {icao:"CYHM", name:"Hamilton (John C. Munro)",                lat:43.17361, lon:-79.93500},
+  {icao:"CYKF", name:"Region of Waterloo Intl",                 lat:43.45889, lon:-80.37750},
+  {icao:"CYXU", name:"London Intl",                             lat:43.03306, lon:-81.15111},
+  {icao:"CYAM", name:"Sault Ste. Marie",                        lat:46.48528, lon:-84.50944},
+  {icao:"CYQT", name:"Thunder Bay Intl",                        lat:48.37194, lon:-89.32389},
+  {icao:"CYSB", name:"Sudbury (Greater Sudbury)",               lat:46.62500, lon:-80.79889},
+  {icao:"CYTS", name:"Timmins (Victor M. Power)",               lat:48.56917, lon:-81.37750},
+  {icao:"CYGK", name:"Kingston Norman Rogers",                  lat:44.22639, lon:-76.58444},
+  {icao:"CYSN", name:"Niagara District (St. Catharines)",       lat:43.19167, lon:-79.17167},
+  {icao:"CYOO", name:"Oshawa Executive",                        lat:43.92278, lon:-78.89500},
+  {icao:"CYPQ", name:"Peterborough Regional",                   lat:44.23056, lon:-78.36306},
+  // Southern Ontario
+  {icao:"CYZR", name:"Sarnia Chris Hadfield",                   lat:42.99944, lon:-82.30889},
+  {icao:"CYQG", name:"Windsor Intl",                            lat:42.27556, lon:-82.95528},
+  {icao:"CYCK", name:"Chatham-Kent",                            lat:42.30639, lon:-82.08194},
+  {icao:"CYFD", name:"Brantford",                               lat:43.13139, lon:-80.34250},
+  {icao:"CYSA", name:"Stratford Municipal",                     lat:43.41556, lon:-80.93444},
+  {icao:"CYGD", name:"Goderich",                                lat:43.76694, lon:-81.71056},
+  {icao:"CYKM", name:"Kincardine Municipal",                    lat:44.20139, lon:-81.60667},
+  {icao:"CYHS", name:"Saugeen Municipal (Hanover)",             lat:44.15833, lon:-81.06278},
+  {icao:"CYQS", name:"St. Thomas Municipal",                    lat:42.77000, lon:-81.11083},
+  {icao:"CYTB", name:"Tillsonburg",                             lat:42.92639, lon:-80.74694},
+  {icao:"CYPT", name:"Pelee Island",                            lat:41.77833, lon:-82.67806},
+  {icao:"CZBA", name:"Burlington Executive",                    lat:43.44167, lon:-79.85028},
+  {icao:"CYVV", name:"Wiarton",                                 lat:44.74583, lon:-81.10722},
+  {icao:"CYOS", name:"Meaford (Maj-Gen Rohmer)",                lat:44.59028, lon:-80.83750},
+  {icao:"CYZE", name:"Gore Bay-Manitoulin",                     lat:45.88167, lon:-82.56722},
+  {icao:"CYEM", name:"Manitoulin East (Manitowaning)",          lat:45.84250, lon:-81.85750},
+  {icao:"CYEL", name:"Elliot Lake Municipal",                   lat:46.35139, lon:-82.56139},
+  // Ottawa / Eastern Ontario
+  {icao:"CYRP", name:"Ottawa/Carp",                             lat:45.32250, lon:-76.02222},
+  {icao:"CYRO", name:"Ottawa/Rockcliffe",                       lat:45.46056, lon:-75.64333},
+  {icao:"CYDH", name:"Ottawa/Dwyer Hill",                       lat:45.13056, lon:-75.94833},
+  {icao:"CYCC", name:"Cornwall Regional",                       lat:45.09278, lon:-74.56778},
+  {icao:"CYSH", name:"Smiths Falls-Montague",                   lat:44.94583, lon:-75.94056},
+  {icao:"CYTA", name:"Pembroke",                                lat:45.86444, lon:-77.25167},
+  {icao:"CYWA", name:"Petawawa (CFB)",                          lat:45.95028, lon:-77.31917},
+  {icao:"CYTR", name:"Trenton (CFB)",                           lat:44.11917, lon:-77.52833},
+  // Central / Cottage Country
+  {icao:"CYLS", name:"Lake Simcoe Regional (Barrie)",           lat:44.48528, lon:-79.55556},
+  {icao:"CYBN", name:"Borden (CFB)",                            lat:44.27167, lon:-79.91250},
+  {icao:"CYQA", name:"Muskoka",                                 lat:44.97639, lon:-79.30667},
+  {icao:"CYEE", name:"Midland/Huronia",                         lat:44.68472, lon:-79.92944},
+  {icao:"CYCE", name:"Centralia/James T. Field",                lat:43.28556, lon:-81.50833},
+  // Northern Ontario
+  {icao:"CYYB", name:"North Bay (Jack Garland)",                lat:46.36361, lon:-79.42278},
+  {icao:"CYXR", name:"Earlton (Timiskaming Regional)",          lat:47.69500, lon:-79.84889},
+  {icao:"CYLD", name:"Chapleau",                                lat:47.82000, lon:-83.34667},
+  {icao:"CYHF", name:"Hearst (Rene Fontaine)",                  lat:49.71389, lon:-83.68694},
+  {icao:"CYHN", name:"Hornepayne Municipal",                    lat:49.19306, lon:-84.75889},
+  {icao:"CYYU", name:"Kapuskasing",                             lat:49.41167, lon:-82.46944},
+  {icao:"CYCN", name:"Cochrane",                                lat:49.10556, lon:-81.01361},
+  {icao:"CYGQ", name:"Geraldton (Greenstone Regional)",         lat:49.77833, lon:-86.93944},
+  {icao:"CYSP", name:"Marathon",                                lat:48.75528, lon:-86.34444},
+  {icao:"CYXZ", name:"Wawa",                                    lat:47.96694, lon:-84.78639},
+  {icao:"CYKX", name:"Kirkland Lake",                           lat:48.21028, lon:-79.98139},
+  {icao:"CYMG", name:"Manitouwadge",                            lat:49.08389, lon:-85.86056},
+  // Northwestern Ontario
+  {icao:"CYHD", name:"Dryden Regional",                         lat:49.83139, lon:-92.74361},
+  {icao:"CYAG", name:"Fort Frances Municipal",                  lat:48.65417, lon:-93.43972},
+  {icao:"CYQK", name:"Kenora",                                  lat:49.78833, lon:-94.36306},
+  {icao:"CZUC", name:"Ignace Municipal",                        lat:49.42972, lon:-91.71778},
+  {icao:"CYXL", name:"Sioux Lookout",                           lat:50.11361, lon:-91.90556},
+  {icao:"CYYW", name:"Armstrong",                               lat:50.29389, lon:-88.91000},
+  {icao:"CYQN", name:"Nakina",                                  lat:50.18278, lon:-86.69639},
+  {icao:"CYRL", name:"Red Lake",                                lat:51.06500, lon:-93.79472},
+  {icao:"CYPL", name:"Pickle Lake",                             lat:51.44639, lon:-90.21361},
+  {icao:"CYIB", name:"Atikokan Municipal",                      lat:48.77417, lon:-91.63889},
+  // Far North
+  {icao:"CYMO", name:"Moosonee",                                lat:51.29111, lon:-80.60778},
+  {icao:"CYER", name:"Fort Severn",                             lat:56.01889, lon:-87.67611},
+  {icao:"CYPO", name:"Peawanuck",                               lat:54.98806, lon:-85.44333},
+  {icao:"CYAT", name:"Attawapiskat",                            lat:52.92750, lon:-82.43194},
+  {icao:"CYFA", name:"Fort Albany",                             lat:52.20139, lon:-81.69694},
+  {icao:"CZKE", name:"Kashechewan",                             lat:52.28250, lon:-81.67778},
+  {icao:"CYFH", name:"Fort Hope (Eabametoong FN)",              lat:51.56194, lon:-87.90778},
+  {icao:"CYWP", name:"Webequie",                                lat:52.95944, lon:-87.37528},
+  {icao:"CYKP", name:"Ogoki Post (Marten Falls FN)",            lat:51.65861, lon:-85.90167},
+  // Remote First Nations
+  {icao:"CYAC", name:"Cat Lake",                                lat:51.72722, lon:-91.82444},
+  {icao:"CYVZ", name:"Deer Lake",                               lat:52.65583, lon:-94.06139},
+  {icao:"CPV7", name:"Poplar Hill",                             lat:52.11333, lon:-94.25556},
+  {icao:"CYPM", name:"Pikangikum",                              lat:51.81972, lon:-93.97333},
+  {icao:"CZRJ", name:"Round Lake (Weagamow Lake)",              lat:52.94361, lon:-91.31278},
+  {icao:"CZMD", name:"Muskrat Dam Lake",                        lat:53.44139, lon:-91.76278},
+  {icao:"CZPB", name:"Sachigo Lake",                            lat:53.89111, lon:-92.19639},
+  {icao:"CZSJ", name:"Sandy Lake",                              lat:53.06417, lon:-93.34444},
+  {icao:"CYAQ", name:"Kasabonika Lake",                         lat:53.52472, lon:-88.64306},
+  {icao:"CYTL", name:"Big Trout Lake (Kitchenuhmaykoosib)",     lat:53.81778, lon:-89.89694},
+  {icao:"CKQ3", name:"North Spirit Lake",                       lat:52.49000, lon:-92.97111},
+  {icao:"CYLH", name:"Lansdowne House (Neskantaga FN)",         lat:52.19556, lon:-87.93417},
+  {icao:"CNE3", name:"Bearskin Lake",                           lat:53.96556, lon:-91.02722},
+  {icao:"CNM5", name:"Kingfisher Lake",                         lat:53.01250, lon:-89.85528},
+  {icao:"CPV8", name:"Keewaywin",                               lat:52.99111, lon:-92.83639},
+  {icao:"CJV7", name:"Summer Beaver (Nibinamik FN)",            lat:52.70861, lon:-88.54194},
+  {icao:"CKB6", name:"Angling Lake (Wapekeka FN)",              lat:53.84917, lon:-89.57944},
+  {icao:"CKL3", name:"Wunnumin Lake",                           lat:52.89389, lon:-89.28917},
+  {icao:"CYGL", name:"La Grande Riviere",                       lat:53.6253,  lon:-77.7042},
+  // ── QUÉBEC ────────────────────────────────────────
+  {icao:"CYUL", name:"Montréal-Trudeau Intl",        lat:45.4706,  lon:-73.7408},
+  {icao:"CYQB", name:"Québec City (Jean Lesage)",    lat:46.7911,  lon:-71.3933},
+  {icao:"CYMX", name:"Montréal-Mirabel Intl",        lat:45.6795,  lon:-74.0386},
+  {icao:"CYBG", name:"Bagotville (CFB)",             lat:48.3308,  lon:-70.9964},
+  {icao:"CYBC", name:"Baie-Comeau",                  lat:49.1325,  lon:-68.2044},
+  {icao:"CYGR", name:"Îles-de-la-Madeleine",        lat:47.4247,  lon:-61.7781},
+  {icao:"CYVP", name:"Kuujjuaq",                     lat:58.0961,  lon:-68.4269},
+  {icao:"CYGW", name:"Kuujjuarapik",                 lat:55.2819,  lon:-77.7653},
+  {icao:"CYMT", name:"Chibougamau/Chapais",          lat:49.7717,  lon:-74.5281},
+  {icao:"CYVO", name:"Val-d'Or",                     lat:48.0533,  lon:-77.7828},
+  {icao:"CYRJ", name:"Roberval",                     lat:48.5197,  lon:-72.2656},
+  {icao:"CYRQ", name:"Trois-Rivières",               lat:46.3528,  lon:-72.6794},
+  {icao:"CYDO", name:"Dolbeau-St-Félicien",          lat:48.7786,  lon:-72.3756},
+  {icao:"CYEY", name:"Amos/Magny",                   lat:48.5639,  lon:-77.6392},
+  {icao:"CYLQ", name:"La Tuque",                     lat:47.4097,  lon:-72.7889},
+  {icao:"CYKL", name:"Schefferville",                lat:54.8053,  lon:-66.8053},
+  {icao:"CYAS", name:"Kangirsuk",                    lat:60.0275,  lon:-69.9994},
+  {icao:"CYPH", name:"Inukjuak",                     lat:58.4719,  lon:-78.0769},
+  // ── NEW BRUNSWICK ─────────────────────────────────
+  {icao:"CYSJ", name:"Saint John",                   lat:45.3161,  lon:-65.8903},
+  {icao:"CYFC", name:"Fredericton Intl",             lat:45.8689,  lon:-66.5372},
+  {icao:"CYCH", name:"Miramichi",                    lat:47.0078,  lon:-65.4492},
+  {icao:"CYCL", name:"Charlo",                       lat:47.9908,  lon:-66.3303},
+  // ── NOVA SCOTIA ───────────────────────────────────
+  {icao:"CYHZ", name:"Halifax Stanfield Intl",       lat:44.8808,  lon:-63.5086},
+  {icao:"CYQY", name:"Sydney (J.A. Douglas McCurdy)", lat:46.1614, lon:-60.0478},
+  {icao:"CYZX", name:"CFB Greenwood",                lat:44.9844,  lon:-64.9169},
+  // ── PRINCE EDWARD ISLAND ──────────────────────────
+  {icao:"CYYG", name:"Charlottetown",                lat:46.2900,  lon:-63.1211},
+  // ── NEWFOUNDLAND & LABRADOR ───────────────────────
+  {icao:"CYYT", name:"St. John's Intl",              lat:47.6186,  lon:-52.7519},
+  {icao:"CYDF", name:"Deer Lake Regional",           lat:49.2108,  lon:-57.3914},
+  {icao:"CYGX", name:"Gander Intl",                  lat:48.9369,  lon:-54.5681},
+  {icao:"CYYR", name:"Goose Bay (Happy Valley)",     lat:53.3192,  lon:-60.4258},
+  {icao:"CYAY", name:"St. Anthony",                  lat:51.3919,  lon:-56.0831},
+  {icao:"CYDP", name:"Nain",                         lat:56.5492,  lon:-61.6836},
+  {icao:"CYCA", name:"Cartwright",                   lat:53.6828,  lon:-57.0419},
+  {icao:"CYBX", name:"Blanc-Sablon",                 lat:51.4436,  lon:-57.1853},
+  {icao:"CYWK", name:"Wabush",                       lat:52.9219,  lon:-66.8644},
+  // ── NORTHWEST TERRITORIES ─────────────────────────
+  {icao:"CYZF", name:"Yellowknife",                  lat:62.4628,  lon:-114.4403},
+  {icao:"CYEV", name:"Inuvik (Mike Zubko)",          lat:68.3042,  lon:-133.4831},
+  {icao:"CYFS", name:"Fort Simpson",                 lat:61.7602,  lon:-121.2369},
+  {icao:"CYGH", name:"Fort Good Hope",               lat:66.2408,  lon:-128.6511},
+  {icao:"CYFR", name:"Fort Resolution",              lat:61.1808,  lon:-113.6900},
+  {icao:"CYVL", name:"Colville Lake",                lat:67.0392,  lon:-126.1336},
+  {icao:"CYJF", name:"Fort Liard",                   lat:60.2358,  lon:-123.4697},
+  {icao:"CYWJ", name:"Deline",                       lat:65.2111,  lon:-123.4358},
+  // ── YUKON ─────────────────────────────────────────
+  {icao:"CYXY", name:"Whitehorse (Erik Nielsen)",    lat:60.7096,  lon:-135.0675},
+  {icao:"CYDA", name:"Dawson City",                  lat:64.0431,  lon:-139.1281},
+  {icao:"CYDB", name:"Burwash Landing",              lat:61.3711,  lon:-139.0411},
+  // ── NUNAVUT ───────────────────────────────────────
+  {icao:"CYFB", name:"Iqaluit",                      lat:63.7564,  lon:-68.5558},
+  {icao:"CYCB", name:"Cambridge Bay",                lat:69.1081,  lon:-105.1381},
+  {icao:"CYCO", name:"Kugluktuk",                    lat:67.5667,  lon:-115.1439},
+  {icao:"CYBB", name:"Kugaaruk",                     lat:68.5344,  lon:-89.8081},
+  {icao:"CYAB", name:"Arctic Bay",                   lat:73.0058,  lon:-85.0425},
+  {icao:"CYCY", name:"Clyde River",                  lat:70.4861,  lon:-68.5167},
+  {icao:"CYEK", name:"Arviat",                       lat:61.0942,  lon:-94.0708},
+  {icao:"CYBK", name:"Baker Lake",                   lat:64.2989,  lon:-96.0778},
+  {icao:"CYCS", name:"Chesterfield Inlet",           lat:63.3469,  lon:-90.7311},
+  {icao:"CYEU", name:"Eureka",                       lat:79.9947,  lon:-85.8142},
+  {icao:"CYYH", name:"Taloyoak (Spence Bay)",        lat:69.5467,  lon:-93.5767},
+  {icao:"CYRB", name:"Resolute Bay",                 lat:74.7169,  lon:-94.9694},
+  {icao:"CYIO", name:"Pond Inlet",                   lat:72.6833,  lon:-77.9667},
+  {icao:"CYVM", name:"Qikiqtarjuaq",                 lat:67.5458,  lon:-64.0314},
+  {icao:"CYLT", name:"Alert",                        lat:82.5178,  lon:-62.2806},
+  {icao:"CYHK", name:"Gjoa Haven",                   lat:68.6356,  lon:-95.8497},
+];
+
+const AP_MAP = Object.fromEntries(AIRPORTS.map(a => [a.icao, a]));
+
+// Known pressure levels with their standard altitudes in feet
+// Surface uses 0 ft as a pseudo-level
+const PRESSURE_LEVELS = [
+  { hpa: null, ft:     0 },  // surface (10m AGL)
+  { hpa: 850,  ft:  5000 },
+  { hpa: 700,  ft: 10000 },
+  { hpa: 500,  ft: 18000 },
+  { hpa: 400,  ft: 24000 },
+  { hpa: 300,  ft: 30000 },
+  { hpa: 250,  ft: 34000 },
+  { hpa: 200,  ft: 39000 },
+];
+
+// ── State ──────────────────────────────────────────────────
+let cache      = {};
+let route      = [];   // [{icao,name,lat,lon} | {icao,error:true}]
+let legAltFt   = [];   // per-leg altitude in feet (user typed)
+let legDepTime = [];   // per-leg departure time as "HH:MM" local string (or null = now)
+let legExpanded = []; // per-leg expanded state (bool)
+let optMode = 'fuel'; // 'fuel' or 'speed' — global optimisation preference
+let legAltManual = []; // true if user has manually overridden the altitude for this leg
+let crewInfo = { captain: '', fo: '', aircraft: '', date: '', dutyStart: '', dutyStop: '' }; // parsed from email
+
+// ── Clock ──────────────────────────────────────────────────
+function tickClock() {
+  const m = new Date().toUTCString().match(/\d{2}:\d{2}:\d{2}/);
+  document.getElementById('utc-clock').textContent = (m ? m[0] : '--:--') + ' UTC';
+}
+setInterval(tickClock, 1000); tickClock();
+
+// ── Helpers ────────────────────────────────────────────────
+const mpsToKts = v => v != null ? Math.round(v * 1.94384 * 10) / 10 : null;
+const cardinal  = d => {
+  if (d == null) return '—';
+  return ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"][Math.round(d/22.5)%16];
+};
+const spdClass = k => { if(k==null)return ''; if(k<15)return 'spd-calm'; if(k<30)return 'spd-moderate'; if(k<50)return 'spd-strong'; return 'spd-severe'; };
+const fmtSpd   = k => k != null ? k.toFixed(1) : '—';
+const fmtDir   = d => d != null ? Math.round(d) + '°' : '—';
+const fmtFt    = f => f === 0 ? 'Surface' : Math.round(f / 100) + ' hft';
+
+// ── Haversine distance in nautical miles ───────────────────
+function distNm(lat1, lon1, lat2, lon2) {
+  const R = 3440.065; // Earth radius in nm
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.asin(Math.sqrt(a));
+}
+
+// ── True track in degrees (0–360) ──────────────────────────
+function trackDeg(lat1, lon1, lat2, lon2) {
+  const toRad = d => d * Math.PI / 180;
+  const dLon  = toRad(lon2 - lon1);
+  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2))
+          - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+  const brng = Math.atan2(y, x) * 180 / Math.PI;
+  return (brng + 360) % 360;
+}
+
+
+// ── PC-12/47E climb performance table ─────────────────────
+// Cumulative from sea level: time(s), fuel(lbs), dist(nm), TAS(kt), FF(lbs/hr)
+const PC12 = [
+  {alt:0,     time:0,    fuel:0,   dist:0,  tas:230, ff:635},
+  {alt:500,   time:18,   fuel:4,   dist:1,  tas:231, ff:630},
+  {alt:1000,  time:37,   fuel:7,   dist:2,  tas:233, ff:625},
+  {alt:1500,  time:56,   fuel:11,  dist:3,  tas:234, ff:620},
+  {alt:2000,  time:75,   fuel:15,  dist:4,  tas:235, ff:615},
+  {alt:2500,  time:94,   fuel:18,  dist:5,  tas:237, ff:611},
+  {alt:3000,  time:114,  fuel:22,  dist:6,  tas:238, ff:606},
+  {alt:3500,  time:133,  fuel:25,  dist:7,  tas:239, ff:602},
+  {alt:4000,  time:152,  fuel:32,  dist:8,  tas:240, ff:597},
+  {alt:4500,  time:171,  fuel:32,  dist:9,  tas:241, ff:593},
+  {alt:5000,  time:191,  fuel:36,  dist:10, tas:242, ff:589},
+  {alt:5500,  time:210,  fuel:39,  dist:11, tas:242, ff:584},
+  {alt:6000,  time:230,  fuel:43,  dist:12, tas:244, ff:580},
+  {alt:6500,  time:246,  fuel:46,  dist:13, tas:246, ff:576},
+  {alt:7000,  time:269,  fuel:50,  dist:14, tas:247, ff:572},
+  {alt:7500,  time:289,  fuel:53,  dist:15, tas:248, ff:568},
+  {alt:8000,  time:308,  fuel:56,  dist:16, tas:249, ff:564},
+  {alt:8500,  time:328,  fuel:60,  dist:17, tas:251, ff:561},
+  {alt:9000,  time:348,  fuel:63,  dist:18, tas:252, ff:557},
+  {alt:9500,  time:368,  fuel:67,  dist:19, tas:253, ff:553},
+  {alt:10000, time:388,  fuel:70,  dist:20, tas:254, ff:549},
+  {alt:10500, time:408,  fuel:73,  dist:21, tas:256, ff:547},
+  {alt:11000, time:428,  fuel:77,  dist:22, tas:257, ff:545},
+  {alt:11500, time:449,  fuel:80,  dist:23, tas:258, ff:542},
+  {alt:12000, time:469,  fuel:83,  dist:24, tas:259, ff:540},
+  {alt:12500, time:489,  fuel:86,  dist:25, tas:261, ff:538},
+  {alt:13000, time:511,  fuel:90,  dist:26, tas:260, ff:537},
+  {alt:13500, time:532,  fuel:93,  dist:27, tas:261, ff:535},
+  {alt:14000, time:553,  fuel:96,  dist:28, tas:262, ff:534},
+  {alt:14500, time:574,  fuel:100, dist:29, tas:263, ff:531},
+  {alt:15000, time:595,  fuel:103, dist:30, tas:265, ff:529},
+  {alt:15500, time:618,  fuel:106, dist:32, tas:266, ff:527},
+  {alt:16000, time:641,  fuel:110, dist:33, tas:267, ff:525},
+  {alt:16500, time:664,  fuel:113, dist:34, tas:268, ff:522},
+  {alt:17000, time:687,  fuel:116, dist:35, tas:270, ff:520},
+  {alt:17500, time:710,  fuel:120, dist:36, tas:271, ff:518},
+  {alt:18000, time:736,  fuel:123, dist:38, tas:272, ff:516},
+  {alt:19000, time:788,  fuel:130, dist:40, tas:273, ff:504},
+  {alt:20000, time:839,  fuel:137, dist:43, tas:273, ff:492},
+  {alt:21000, time:897,  fuel:145, dist:46, tas:273, ff:476},
+  {alt:22000, time:955,  fuel:152, dist:49, tas:272, ff:461},
+  {alt:23000, time:1018, fuel:160, dist:53, tas:271, ff:446},
+  {alt:24000, time:1085, fuel:168, dist:56, tas:270, ff:432},
+  {alt:25000, time:1151, fuel:175, dist:60, tas:269, ff:418},
+  {alt:26000, time:1230, fuel:184, dist:64, tas:267, ff:403},
+  {alt:27000, time:1310, fuel:192, dist:68, tas:265, ff:390},
+  {alt:28000, time:1398, fuel:201, dist:73, tas:264, ff:377},
+  {alt:29000, time:1496, fuel:211, dist:78, tas:261, ff:363},
+  {alt:30000, time:1595, fuel:220, dist:84, tas:259, ff:348},
+];
+
+// Interpolate PC12 table at any altitude (ft)
+function pc12AtAlt(altFt) {
+  if (altFt <= 0) return PC12[0];
+  if (altFt >= 30000) return PC12[PC12.length - 1];
+  const lo = PC12.filter(r => r.alt <= altFt).pop();
+  const hi = PC12.find(r => r.alt > altFt);
+  if (!lo || !hi) return PC12[0];
+  const t = (altFt - lo.alt) / (hi.alt - lo.alt);
+  return {
+    alt: altFt,
+    time: lo.time + t * (hi.time - lo.time),
+    fuel: lo.fuel + t * (hi.fuel - lo.fuel),
+    dist: lo.dist + t * (hi.dist - lo.dist),
+    tas:  lo.tas  + t * (hi.tas  - lo.tas),
+    ff:   lo.ff   + t * (hi.ff   - lo.ff),
+  };
+}
+
+// Valid hemispheric altitudes for a given true track (ft, IFR)
+// Eastbound (0-179): odd thousands (3000,5000,7000...)
+// Westbound (180-359): even thousands (2000,4000,6000...)
+function hemisphericAlts(trackDeg, minFt = 2000, maxFt = 27000) {
+  const eastbound = trackDeg < 180;
+  const alts = [];
+  for (let a = minFt; a <= maxFt; a += 1000) {
+    const thousandsFt = a / 1000;
+    if (eastbound && thousandsFt % 2 !== 0) alts.push(a); // odd
+    if (!eastbound && thousandsFt % 2 === 0) alts.push(a); // even
+  }
+  return alts;
+}
+
+// Wind component along track: positive = tailwind, negative = headwind
+// windDir: direction wind is FROM (met convention), trackDeg: aircraft true track
+function windComponent(windDir, windSpd, trackDeg) {
+  const angle = (windDir - trackDeg + 360) % 360;
+  return -windSpd * Math.cos(angle * Math.PI / 180); // negative cos = tailwind when wind behind
+}
+
+// Colour based on tailwind component: positive = tailwind (always green), negative = headwind (by magnitude)
+const twClass = (windDir, windSpd, track) => {
+  if (windDir == null || windSpd == null) return '';
+  const tw = windComponent(windDir, windSpd, track);
+  if (tw >= 0) return 'spd-calm';
+  const hw = Math.abs(tw);
+  if (hw < 15) return 'spd-calm'; if (hw < 30) return 'spd-moderate'; if (hw < 50) return 'spd-strong'; return 'spd-severe';
+};
+
+// ── Recommend altitudes for a leg ─────────────────────────
+// Returns {bestFuel, bestTime} each: {alt, totalFuel, totalTime, gs, tas, tailwind}
+// legDistNm: leg distance, trackDeg: true track, avgWindDir/Spd: avg wind at candidate alts
+// Since wind varies by alt we use the midpoint avg wind as approximation
+function recommendAlts(legDistNm, track, windDir, windSpd) {
+  if (!legDistNm || legDistNm <= 0 || windDir == null) return null;
+  const candidates = hemisphericAlts(track, 2000, 27000);
+  let bestFuel = null, bestTime = null;
+
+  for (const altFt of candidates) {
+    const perf = pc12AtAlt(altFt);
+    const tailwind = windComponent(windDir, windSpd ?? 0, track);
+    const gs = Math.max(perf.tas + tailwind, 30); // ground speed, min 30kt
+    const climbDist = perf.dist;
+    const cruiseDist = legDistNm - climbDist;
+
+    // If leg too short to reach cruise altitude, skip
+    if (cruiseDist < 0) continue;
+    // Never suggest altitude > leg distance (nm) * 100 ft + 2000 ft
+    if (altFt > legDistNm * 100 + 2000) continue;
+
+    const cruiseTimeHr = cruiseDist / gs;
+    const cruiseFuel = cruiseTimeHr * perf.ff;
+    const totalFuel = perf.fuel + cruiseFuel;
+    const totalTimeHr = (perf.time / 3600) + cruiseTimeHr;
+
+    const result = { alt: altFt, totalFuel: Math.round(totalFuel), totalTimeMin: Math.round(totalTimeHr * 60), gs: Math.round(gs), tas: Math.round(perf.tas), tailwind: Math.round(tailwind) };
+
+    if (!bestFuel || totalFuel < bestFuel.totalFuel) bestFuel = result;
+    if (!bestTime || totalTimeHr < bestTime.totalTimeHr) { bestTime = { ...result, totalTimeHr }; }
+  }
+  return (bestFuel || bestTime) ? { bestFuel, bestTime } : null;
+}
+
+// ── Circular-mean wind average ─────────────────────────────
+function avgWind(w1, w2) {
+  if (!w1 && !w2) return null;
+  if (!w1) return w2;
+  if (!w2) return w1;
+  const spd = ((w1.spd ?? 0) + (w2.spd ?? 0)) / 2;
+  const r1 = (w1.dir ?? 0) * Math.PI / 180;
+  const r2 = (w2.dir ?? 0) * Math.PI / 180;
+  let dir = Math.atan2((Math.sin(r1)+Math.sin(r2))/2, (Math.cos(r1)+Math.cos(r2))/2) * 180 / Math.PI;
+  if (dir < 0) dir += 360;
+  return { spd: Math.round(spd * 10) / 10, dir: Math.round(dir) };
+}
+
+// ── Interpolate wind at arbitrary altitude for one airport ─
+// Uses linear interpolation of speed and circular interp of direction
+// between the two surrounding pressure levels.
+function getWindAtFt(icao, targetFt, hIdx) {
+  const data = cache[icao];
+  if (!data || data.error) return null;
+
+  // Clamp to valid range
+  const ft = Math.max(0, Math.min(targetFt, 39000));
+
+  // Find the two bounding levels
+  let lo = PRESSURE_LEVELS[0];
+  let hi = PRESSURE_LEVELS[PRESSURE_LEVELS.length - 1];
+  for (let i = 0; i < PRESSURE_LEVELS.length - 1; i++) {
+    if (ft >= PRESSURE_LEVELS[i].ft && ft <= PRESSURE_LEVELS[i+1].ft) {
+      lo = PRESSURE_LEVELS[i];
+      hi = PRESSURE_LEVELS[i+1];
+      break;
+    }
+  }
+
+  const wLo = getRawWind(data, lo, hIdx);
+  const wHi = getRawWind(data, hi, hIdx);
+  if (!wLo && !wHi) return null;
+  if (!wLo) return wHi;
+  if (!wHi) return wLo;
+
+  // Interpolation factor (0 = at lo, 1 = at hi)
+  const range = hi.ft - lo.ft;
+  const t = range === 0 ? 0 : (ft - lo.ft) / range;
+
+  // Speed: linear
+  const spd = wLo.spd != null && wHi.spd != null
+    ? Math.round((wLo.spd + t * (wHi.spd - wLo.spd)) * 10) / 10
+    : (wLo.spd ?? wHi.spd);
+
+  // Direction: circular interpolation
+  let dir = null;
+  if (wLo.dir != null && wHi.dir != null) {
+    const r0 = wLo.dir * Math.PI / 180;
+    const r1 = wHi.dir * Math.PI / 180;
+    const sinI = Math.sin(r0) + t * (Math.sin(r1) - Math.sin(r0));
+    const cosI = Math.cos(r0) + t * (Math.cos(r1) - Math.cos(r0));
+    dir = Math.atan2(sinI, cosI) * 180 / Math.PI;
+    if (dir < 0) dir += 360;
+    dir = Math.round(dir);
+  } else {
+    dir = wLo.dir ?? wHi.dir;
+  }
+
+  return { spd, dir, gusts: ft === 0 ? wLo.gusts : null };
+}
+
+// ── Resolve a departure time string to an hourly index ─────
+// depTime: "HH:MM" Zulu (UTC), or null (= current time)
+// Returns the index into Open-Meteo hourly arrays (0 = first hour of day 1)
+function timeToHourlyIdx(depTime) {
+  const now = new Date();
+  if (!depTime) {
+    return now.getUTCHours();
+  }
+  const [hh, mm] = depTime.split(':').map(Number);
+  // Build a Date for today at that UTC hour
+  const target = new Date(now);
+  target.setUTCHours(hh, mm, 0, 0);
+  // If time is in the past (more than 30 min), assume tomorrow UTC
+  if (target < now - 30 * 60000) target.setUTCDate(target.getUTCDate() + 1);
+  // Open-Meteo hourly[0] = midnight UTC of today. Find offset in hours.
+  const midnight = new Date(now);
+  midnight.setUTCHours(0, 0, 0, 0);
+  const idx = Math.round((target - midnight) / 3600000);
+  return Math.max(0, Math.min(idx, 71)); // 3 days × 24 hrs
+}
+
+// Convert Zulu "HH:MM" to local time string like "14:35 EDT"
+function zuluToLocal(zuluTime) {
+  if (!zuluTime) return null;
+  const parts = zuluTime.split(':').map(Number);
+  const d = new Date();
+  d.setUTCHours(parts[0], parts[1], 0, 0);
+  const localH = String(d.getHours()).padStart(2, '0');
+  const localM = String(d.getMinutes()).padStart(2, '0');
+  const tz = Intl.DateTimeFormat([], { timeZoneName: 'short' }).formatToParts(d).find(p => p.type === 'timeZoneName')?.value || '';
+  return `${localH}:${localM} ${tz}`;
+}
+
+// Get raw wind from cached data for a pressure level at a given hourly index
+function getRawWind(data, lvl, hIdx) {
+  if (!lvl.hpa) {
+    // Use hourly surface winds at the target hour instead of current obs
+    const h = data.hourly;
+    const spd   = mpsToKts((h['windspeed_10m']   || [])[hIdx]);
+    const rawDir = (h['winddirection_10m']  || [])[hIdx];
+    // Gusts aren't in hourly, show null
+    return { spd, dir: rawDir != null ? Math.round(rawDir) : null, gusts: null };
+  }
+  const h = data.hourly;
+  const spd    = mpsToKts((h[`windspeed_${lvl.hpa}hPa`]   || [])[hIdx]);
+  const rawDir = (h[`winddirection_${lvl.hpa}hPa`] || [])[hIdx];
+  return { spd, dir: rawDir != null ? Math.round(rawDir) : null, gusts: null };
+}
+
+// ── Fetch one airport (all pressure levels) ────────────────
+async function fetchAirport(ap) {
+  if (cache[ap.icao]) return;
+  const hpas  = PRESSURE_LEVELS.filter(l => l.hpa).map(l => l.hpa);
+  const hvars = [...hpas.map(h=>`windspeed_${h}hPa`), ...hpas.map(h=>`winddirection_${h}hPa`)].join(',');
+  const url   = `https://api.open-meteo.com/v1/forecast`
+    + `?latitude=${ap.lat}&longitude=${ap.lon}`
+    + `&hourly=${hvars},windspeed_10m,winddirection_10m&wind_speed_unit=ms&forecast_days=3`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`HTTP ${r.status} for ${ap.icao}`);
+  const json = await r.json();
+  if (!json.hourly) throw new Error(`No hourly data for ${ap.icao}`);
+  cache[ap.icao] = json;
+}
+
+// ── Parse route ────────────────────────────────────────────
+function parseRoute(raw) {
+  return raw.trim().toUpperCase().split(/\s+/).filter(Boolean).map(t => {
+    if (AP_MAP[t]) return {...AP_MAP[t]};
+    if (t.length === 3 && AP_MAP['CY' + t]) return {...AP_MAP['CY' + t]};
+    if (t.length === 3 && AP_MAP['CZ' + t]) return {...AP_MAP['CZ' + t]};
+    return { icao: t, error: true };
+  });
+}
+
+// ── Toggle optimisation mode (fuel vs speed) ──────────────
+function toggleOptMode() {
+  optMode = optMode === 'fuel' ? 'speed' : 'fuel';
+  // Clear manual overrides so alts repopulate from new mode
+  legAltManual = legAltManual.map(() => false);
+  legAltFt = [];
+  const btn = document.getElementById('opt-mode-btn');
+  if (btn) {
+    btn.textContent = optMode === 'fuel' ? '⛽ Fuel' : '⚡ Speed';
+    btn.style.borderColor = optMode === 'fuel' ? 'var(--teal)' : 'var(--gold)';
+    btn.style.color = optMode === 'fuel' ? 'var(--teal)' : 'var(--gold)';
+  }
+  renderLegs();
+}
+
+// ── Toggle leg expanded state ──────────────────────────────
+function toggleLeg(li) {
+  legExpanded[li] = !legExpanded[li];
+  renderLegs();
+}
+
+// ── Altitude input change for a leg ───────────────────────
+function onLegAltChange(legIdx) {
+  const inp = document.getElementById(`alt-inp-${legIdx}`);
+  const val = parseInt(inp.value) * 100;  // input is hundreds, store as feet
+  if (!isNaN(val) && val >= 0 && val <= 45000) {
+    legAltFt[legIdx] = val;
+    legAltManual[legIdx] = true;
+    renderLegs();
+  }
+}
+
+// ── Departure time text input for a leg (forces 24h Zulu) ─
+function onLegTimeText(legIdx, inp) {
+  // Auto-insert colon after 2 digits
+  let v = inp.value.replace(/[^0-9:]/g, '');
+  if (v.length === 2 && !v.includes(':') && inp._lastLen !== 3) v = v + ':';
+  inp._lastLen = v.length;
+  inp.value = v;
+  // Validate HH:MM
+  const m = v.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+  if (m) {
+    const hh = m[1].padStart(2, '0');
+    const mm = m[2];
+    legDepTime[legIdx] = `${hh}:${mm}`;
+    inp.style.color = '';
+    renderLegs();
+  } else if (v === '') {
+    legDepTime[legIdx] = null;
+    inp.style.color = '';
+    renderLegs();
+  } else {
+    inp.style.color = 'var(--severe)';
+  }
+}
+
+// ── Render all leg cards ───────────────────────────────────
+function renderLegs() {
+  const panel = document.getElementById('wind-panel');
+
+  if (!route.length) {
+    panel.innerHTML = `<div class="status-msg"><span class="icon">✈️</span>Enter your route above<br><small>e.g. CYXL CYAC CYVZ CPV7</small></div>`;
+    return;
+  }
+  if (route.length < 2) {
+    panel.innerHTML = `<div class="status-msg"><span class="icon">✈️</span>Add at least 2 airports to see leg winds</div>`;
+    return;
+  }
+
+  let html = '';
+
+  for (let li = 0; li < route.length - 1; li++) {
+    const dep   = route[li];
+    const arr   = route[li + 1];
+    // Auto-prefill altitude from recommendation if not manually overridden
+    let ft = legAltFt[li];
+    if (!legAltManual[li] && !dep.error && !arr.error) {
+      // Compute quick recommendation using current avg wind (may be loading)
+      const _legDist = distNm(dep.lat,dep.lon,arr.lat,arr.lon);
+      const _legTrack = trackDeg(dep.lat,dep.lon,arr.lat,arr.lon);
+      const _wDep = cache[dep.icao] ? getWindAtFt(dep.icao, ft ?? 10000, timeToHourlyIdx(legDepTime[li] ?? null)) : null;
+      const _wArr = cache[arr.icao] ? getWindAtFt(arr.icao, ft ?? 10000, timeToHourlyIdx(legDepTime[li] ?? null)) : null;
+      const _avg  = (_wDep && _wArr) ? avgWind(_wDep, _wArr) : null;
+      if (_avg && _legDist > 5) {
+        const _rec = recommendAlts(_legDist, _legTrack, _avg.dir, _avg.spd);
+        if (_rec) {
+          const chosen = optMode === 'fuel' ? _rec.bestFuel : _rec.bestTime;
+          if (chosen) ft = chosen.alt;
+        }
+      }
+    }
+    if (ft == null) ft = 10000;
+    const depTime = legDepTime[li] ?? null;
+    const hIdx  = timeToHourlyIdx(depTime);
+    const label = fmtFt(ft);
+
+    // Human-readable time label (local time shown next to Zulu input)
+    const localTimeLabel = depTime ? zuluToLocal(depTime) : null;
+
+    // Find surrounding levels for the interp note
+    let loLvl = PRESSURE_LEVELS[0], hiLvl = PRESSURE_LEVELS[PRESSURE_LEVELS.length-1];
+    for (let i = 0; i < PRESSURE_LEVELS.length - 1; i++) {
+      if (ft >= PRESSURE_LEVELS[i].ft && ft <= PRESSURE_LEVELS[i+1].ft) {
+        loLvl = PRESSURE_LEVELS[i]; hiLvl = PRESSURE_LEVELS[i+1]; break;
+      }
+    }
+    const interpNote = ft > 0 && loLvl.ft !== hiLvl.ft
+      ? `interpolated between ${fmtFt(loLvl.ft)} & ${fmtFt(hiLvl.ft)}`
+      : '';
+
+    html += `<div class="leg-card">
+      <div class="leg-header">
+        <div class="leg-title">${dep.error?`<span style="color:var(--severe)">${dep.icao}</span>`:dep.icao}<span class="leg-arrow">›</span>${arr.error?`<span style="color:var(--severe)">${arr.icao}</span>`:arr.icao}${(!dep.error && !arr.error) ? `<span style="font-size:0.75rem;color:var(--muted);font-family:'DM Mono',monospace;margin-left:8px;font-weight:400">${Math.round(distNm(dep.lat,dep.lon,arr.lat,arr.lon))} nm · ${Math.round(trackDeg(dep.lat,dep.lon,arr.lat,arr.lon)).toString().padStart(3,'0')}°T</span>` : ''}</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+          <div style="display:flex;align-items:center;gap:4px">
+            <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Depart (Z)</span>
+            <input id="dep-time-${li}" class="alt-ft-input" type="text" inputmode="numeric"
+              placeholder="HH:MM" value="${depTime||''}" maxlength="5"
+              style="width:72px;padding:4px 6px;font-size:0.75rem;text-align:center"
+              oninput="onLegTimeText(${li},this)" />
+            ${localTimeLabel ? `<span style="font-size:0.75rem;color:var(--muted);white-space:nowrap">${localTimeLabel}</span>` : ''}
+          </div>
+          <div class="leg-alt-input-wrap">
+            <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Altitude</span>
+            <input id="alt-inp-${li}" class="alt-ft-input" type="number" value="${Math.round(ft/100)}" min="0" max="450" step="1"
+              onchange="onLegAltChange(${li})" onblur="onLegAltChange(${li})" />
+          </div>
+        </div>
+      </div>`;
+
+    if (dep.error || arr.error) {
+      html += `<div class="err-row">⚠ ${dep.error?dep.icao:''} ${arr.error?arr.icao:''} not in database</div></div>`;
+      continue;
+    }
+
+    const depLoading = !cache[dep.icao];
+    const arrLoading = !cache[arr.icao];
+    const legDist  = distNm(dep.lat,dep.lon,arr.lat,arr.lon);
+    const legTrack = trackDeg(dep.lat,dep.lon,arr.lat,arr.lon);
+    const wDep = getWindAtFt(dep.icao, ft, hIdx);
+    const wArr = getWindAtFt(arr.icao, ft, hIdx);
+    const avg  = avgWind(wDep, wArr);
+    const arrowRot = avg?.dir != null ? avg.dir - legTrack + 180 : 0;
+    const rec = (!depLoading && !arrLoading && avg && legDist > 5)
+      ? recommendAlts(legDist, legTrack, avg.dir, avg.spd) : null;
+
+    // Avg banner
+    const avgWindStr = avg
+      ? `${fmtDir(avg.dir)} / ${fmtSpd(avg.spd)} kt`
+      : (depLoading||arrLoading ? '…' : '—');
+    const isExpanded = !!legExpanded[li];
+    html += `<div class="leg-avg" onclick="toggleLeg(${li})">
+      <div class="leg-avg-label">◈ Avg · ${label}${interpNote ? ' · <span style="opacity:0.6;font-size:0.48rem">'+interpNote+'</span>' : ''}<span class="expand-hint">${isExpanded ? '▲ collapse' : '▼ details'}</span></div>
+      <div class="avg-wind-line">
+        <span class="${twClass(avg?.dir, avg?.spd, legTrack)}">${avgWindStr}</span>
+        <span style="font-size:1.4rem;transform:rotate(${arrowRot}deg);display:inline-block;opacity:${avg?0.9:0.2};transition:transform 0.4s;line-height:1">↑</span>
+        ${avg?.gusts ? `<span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--severe);margin-left:2px">G${fmtSpd(avg.gusts)}</span>` : ''}
+      </div>
+    </div>`;
+
+    // Per-airport endpoint rows
+    const renderRow = (wp, w, loading) => {
+      const spd = w?.spd ?? null;
+      const dir = w?.dir ?? null;
+      const rot = dir != null ? dir - legTrack + 180 : 0;
+      const windStr = loading ? '…' : (dir != null ? `${fmtDir(dir)} / ${fmtSpd(spd)} kt` : '—');
+      return `<div class="leg-row">
+        <div class="lr-icao">${wp.icao}</div>
+        <div class="lr-name">${wp.name}</div>
+        <div class="lr-wind">
+          <span class="${twClass(dir, spd, legTrack)}">${windStr}</span>
+          <span style="font-size:0.9rem;transform:rotate(${rot}deg);display:inline-block;opacity:${dir!=null?0.85:0.2};transition:transform 0.4s">↑</span>
+        </div>
+      </div>`;
+    };
+
+    // Altitude recommendation banner
+    if (rec) {
+      const sameFuelTime = rec.bestFuel?.alt === rec.bestTime?.alt;
+      const fmtRec = (r, label, color) => {
+        if (!r) return '';
+        const twSign = r.tailwind >= 0 ? '+' : '';
+        const twStr = `${twSign}${r.tailwind}kt`;
+        const twColor = r.tailwind >= 0
+          ? 'var(--calm)'
+          : (Math.abs(r.tailwind) < 15 ? 'var(--calm)' : Math.abs(r.tailwind) < 30 ? 'var(--moderate)' : Math.abs(r.tailwind) < 50 ? 'var(--strong)' : 'var(--severe)');
+        return `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.1)">
+          <span style="font-family:'DM Mono',monospace;font-size:0.58rem;color:${color};text-transform:uppercase;letter-spacing:0.1em;flex-shrink:0">${label}</span>
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${color};letter-spacing:0.05em;flex-shrink:0">${r.alt/100}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);flex-shrink:0">GS ${r.gs}kt · ${r.totalFuel}lb · ${r.totalTimeMin}min · TW <span style="color:${twColor}">${twStr}</span></span>
+        </div>`;
+      };
+      if (sameFuelTime) {
+        html += fmtRec(rec.bestFuel, '⚡ Best', 'var(--teal)');
+      } else {
+        html += fmtRec(rec.bestFuel, '⛽ Fuel', 'var(--teal)');
+        html += fmtRec(rec.bestTime, '⚡ Fast', 'var(--gold)');
+      }
+    }
+
+    if (isExpanded) {
+      html += `<div class="leg-rows">`;
+      html += renderRow(dep, wDep, depLoading);
+      html += renderRow(arr, wArr, arrLoading);
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+
+  panel.innerHTML = html;
+}
+
+// ── Schedule import ────────────────────────────────────────
+function toggleImport() {
+  const panel = document.getElementById('import-panel');
+  const btn   = document.getElementById('import-toggle');
+  const open  = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  btn.textContent = open ? '✕ Close import' : '＋ Import schedule';
+}
+
+
+// ── Finalize: generate log sheet row ───────────────────────
+function showFinalize() {
+  if (!route || route.length < 2) {
+    alert('Load a route first.');
+    return;
+  }
+
+  const lines = [];
+
+  // Single paste block starting at cell A2
+  // Row 2: 13 tabs to col N = aircraft reg
+  // Row 3: blank (aircraft type row)
+  // Row 4: 13 tabs to col N = captain, skip O (label), P = FO
+  // Rows 5-7: blank (preserve header row 7)
+  // Row 8+: legs — A=FROM B=TO C=blank D=ALT E=blank F=W/V G-K=blank(5) L=ETD
+  const T13 = '\t'.repeat(13); // tabs to reach col N from col A
+
+  lines.push(T13 + (crewInfo.aircraft || ''));           // row 2: aircraft at N2
+  lines.push('');                                         // row 3: blank
+  lines.push(T13 + (crewInfo.captain || '') + '\t\t' + (crewInfo.fo || '')); // row 4: N=captain P=FO
+  lines.push('');                                         // row 5
+  lines.push('');                                         // row 6
+  lines.push('');                                         // row 7 (header row — don't overwrite)
+
+  for (let li = 0; li < route.length - 1; li++) {
+    const dep = route[li];
+    const arr = route[li + 1];
+    if (dep.error || arr.error) {
+      lines.push(`${dep.icao}\t${arr.icao}`);
+      continue;
+    }
+    const ft      = legAltFt[li] ?? 10000;
+    const depTime = legDepTime[li] ?? null;
+    const hIdx    = timeToHourlyIdx(depTime);
+    const wDep    = getWindAtFt(dep.icao, ft, hIdx);
+    const wArr    = getWindAtFt(arr.icao, ft, hIdx);
+    const avg     = avgWind(wDep, wArr);
+    const altHft  = Math.round(ft / 100);
+    // W/V: "270/15"
+    const wv  = avg ? `${String(Math.round(avg.dir)).padStart(3,'0')}/${Math.round(avg.spd)}` : '';
+    const etd = depTime || '';
+    // A=FROM  B=TO  C=blank  D=ALT  E=blank  F=W/V  G,H,I,J,K=blank(5)  L=ETD
+    lines.push([dep.icao, arr.icao, '', altHft, '', wv, '', '', '', '', '', etd].join('\t'));
+  }
+
+  // Show modal
+  const text = lines.join('\n');
+  let modal = document.getElementById('finalize-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'finalize-modal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;flex-direction:column;padding:16px;gap:10px;';
+    modal.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--gold);letter-spacing:0.1em">📋 Log Sheet</span>
+        <button onclick="document.getElementById('finalize-modal').style.display='none'" style="background:none;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;font-size:0.7rem">✕ Close</button>
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--teal);background:rgba(0,212,184,0.08);border:1px solid rgba(0,212,184,0.2);border-radius:8px;padding:8px 10px;flex-shrink:0">
+        Select cell <b>A2</b> in Numbers, then tap Copy &amp; paste.
+      </div>
+      <textarea id="finalize-text" readonly style="flex:1;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:8px;color:var(--white);font-family:'DM Mono',monospace;font-size:0.65rem;padding:10px;resize:none;outline:none;line-height:1.8;white-space:pre;overflow:auto"></textarea>
+      <button onclick="copyFinalize()" style="background:var(--gold);color:#000;border:none;border-radius:8px;padding:10px;font-size:0.8rem;font-weight:700;cursor:pointer;letter-spacing:.05em;font-family:'DM Mono',monospace;flex-shrink:0">⎘ Copy</button>
+      <span id="finalize-copy-status" style="text-align:center;font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--teal);min-height:1em;flex-shrink:0"></span>
+    `;
+    document.body.appendChild(modal);
+  }
+
+  document.getElementById('finalize-text').value = lines.join('\n');
+  modal.style.display = 'flex';
+}
+
+function copyFinalize() {
+  const text = document.getElementById('finalize-text').value;
+  const s = document.getElementById('finalize-copy-status');
+  // Try modern clipboard API first, fall back to execCommand for file:// on iOS Safari
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      s.textContent = '✓ Copied — select A2 in Numbers and paste';
+      setTimeout(() => s.textContent = '', 3000);
+    }).catch(() => fallbackCopy(text, s));
+  } else {
+    fallbackCopy(text, s);
+  }
+}
+
+function fallbackCopy(text, statusEl) {
+  const ta = document.getElementById('finalize-text');
+  ta.focus();
+  ta.select();
+  try {
+    document.execCommand('copy');
+    statusEl.textContent = '✓ Copied — select A2 in Numbers and paste';
+  } catch(e) {
+    statusEl.textContent = 'Long-press the text above → Select All → Copy';
+  }
+  setTimeout(() => statusEl.textContent = '', 4000);
+}
+
+function importSchedule() {
+  const raw    = document.getElementById('schedule-input').value.trim();
+
+  // ── Parse crew/aircraft/date from email header ──────────
+  const matchLine = (pat) => { const m = raw.match(pat); return m ? m[1].trim() : ''; };
+  // Captain: "Hachman, Kaylia" → last, first
+  const captRaw = matchLine(/Captain:\s*(.+)/i);
+  const foRaw   = matchLine(/First Officer:\s*(.+)/i);
+  const acRaw   = matchLine(/Aircraft:\s*(C[A-Z0-9]{4})/i);
+  // Date from "Date	03/06/2026" or "Date  03/06/2026"
+  const dateRaw = matchLine(/^Date[\t\s]+([\d\/]+)/im);
+  const dutyStartRaw = matchLine(/Duty Start[^\t\n]*[\t\s]+(\d{2}:\d{2})\s*Z/i);
+  const dutyStopRaw  = matchLine(/Duty Stop[^\t\n]*[\t\s]+(\d{2}:\d{2})\s*Z/im);
+  // Format name: "Last, First" → "First Last"
+  const fmtName = s => { if (!s) return ''; const p = s.split(','); return p.length===2 ? p[1].trim()+' '+p[0].trim() : s; };
+  // Format date: "03/06/2026" → "06 March 2026"
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const fmtDate = s => { if (!s) return ''; const p = s.split('/'); if(p.length<3) return s; return p[1].replace(/^0/,'')+' '+months[parseInt(p[0])-1]+' '+p[2]; };
+  crewInfo = {
+    captain: fmtName(captRaw),
+    fo: fmtName(foRaw),
+    aircraft: acRaw,
+    date: fmtDate(dateRaw),
+    dutyStart: dutyStartRaw,
+    dutyStop: dutyStopRaw,
+  };
+  const status = document.getElementById('import-status');
+  if (!raw) { status.textContent = 'Nothing to import.'; return; }
+
+  const normalizeIcao = t => {
+    t = t.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!t) return '';
+    if (t.length === 3) return 'C' + t;  // YQT → CYQT, YAT → CYAT
+    return t;
+  };
+
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  const legs  = [];
+
+  for (const line of lines) {
+    // Normalize all whitespace variants (tabs, nbsp, en-space, etc.) to a pipe, then split
+    const norm = line
+      .replace(/[\t\u00a0\u2000-\u200b\u202f\u205f\u3000]+/g, '|')
+      .replace(/  +/g, '|');
+    let cols = norm.split('|').map(c => c.trim()).filter(Boolean);
+    if (cols.length < 3) cols = line.trim().split(/\s+/);
+    if (cols.length < 3) continue;
+
+    // Skip header row
+    const first = cols[0].toUpperCase().replace(/[^A-Z]/g, '');
+    if (['ORIGIN','FROM','DEP','ORIG','SOURCE','DEPARTURE'].includes(first)) continue;
+
+    const origin  = normalizeIcao(cols[0]);
+    const dest    = normalizeIcao(cols[1]);
+    if (!origin || !dest) continue;
+
+    const depRaw  = cols[2].replace(/[^0-9:]/g, '');
+    if (!/^\d{1,2}:\d{2}$/.test(depRaw)) continue;
+    const [hh, mm] = depRaw.split(':');
+    const normTime = String(parseInt(hh)).padStart(2,'0') + ':' + mm;
+
+    legs.push({ origin, dest, depTime: normTime });
+  }
+
+  if (!legs.length) {
+    status.textContent = '⚠ No valid legs found. Check format.';
+    return;
+  }
+
+  // Build ordered stop list
+  const stops = [legs[0].origin];
+  for (const leg of legs) {
+    if (stops[stops.length - 1] !== leg.origin) stops.push(leg.origin);
+    stops.push(leg.dest);
+  }
+
+  document.getElementById('route-input').value = stops.join(' ');
+
+  route      = parseRoute(stops.join(' '));
+  legAltFt    = route.slice(0, -1).map((_, i) => legAltManual[i] ? legAltFt[i] : undefined);
+  legExpanded  = route.slice(0, -1).map((_, i) => legExpanded[i]  ?? false);
+  legAltManual  = route.slice(0, -1).map((_, i) => legAltManual[i] ?? false);
+  legDepTime = legs.map(l => l.depTime);
+  while (legDepTime.length < route.length - 1) legDepTime.push(null);
+
+  status.textContent = `✓ ${legs.length} leg${legs.length>1?'s':''} imported`;
+
+  document.getElementById('import-panel').style.display = 'none';
+  document.getElementById('import-toggle').textContent = '＋ Import schedule';
+
+  handleGo();
+}
+
+// ── Go! ────────────────────────────────────────────────────
+async function handleGo() {
+  const raw = document.getElementById('route-input').value;
+  if (!raw.trim()) return;
+
+  const prevRoute    = route;
+  route              = parseRoute(raw);
+  const legs         = route.length - 1;
+  legAltFt           = Array.from({length: legs}, (_, i) => legAltManual[i] ? legAltFt[i] : undefined);
+  legDepTime         = Array.from({length: legs}, (_, i) => legDepTime[i]  ?? null);
+  legExpanded        = Array.from({length: legs}, (_, i) => legExpanded[i] ?? false);
+  legAltManual       = Array.from({length: legs}, (_, i) => legAltManual[i] ?? false);
+
+  renderLegs();
+
+  const btn = document.getElementById('go-btn');
+  btn.classList.add('loading');
+
+  const validAps = route.filter(w => !w.error);
+  await Promise.allSettled(validAps.map(async ap => {
+    try { await fetchAirport(ap); }
+    catch(e) { cache[ap.icao] = { error: e.message }; }
+    renderLegs();
+  }));
+
+  btn.classList.remove('loading');
+}
+
+document.getElementById('route-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') handleGo();
+});
+</script>
+</body>
+</html>
