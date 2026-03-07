@@ -119,6 +119,7 @@ const AIRPORTS = [
   {icao:"CYYW", name:"Armstrong",                               lat:50.29389, lon:-88.91000},
   {icao:"CYQN", name:"Nakina",                                  lat:50.18278, lon:-86.69639},
   {icao:"CYRL", name:"Red Lake",                                lat:51.06500, lon:-93.79472},
+  {icao:"CKD9",  name:"Slate Falls",                               lat:51.1300,  lon:-91.6656},
   {icao:"CYPL", name:"Pickle Lake",                             lat:51.44639, lon:-90.21361},
   {icao:"CYIB", name:"Atikokan Municipal",                      lat:48.77417, lon:-91.63889},
   // Far North
@@ -220,6 +221,5 @@ const AIRPORTS = [
   {icao:"CYIO", name:"Pond Inlet",                   lat:72.6833,  lon:-77.9667},
   {icao:"CYVM", name:"Qikiqtarjuaq",                 lat:67.5458,  lon:-64.0314},
   {icao:"CYLT", name:"Alert",                        lat:82.5178,  lon:-62.2806},
-  {icao:"CYHK", name:"Gjoa Haven",                   lat:68.6356,  lon:-95.8497},
-  {icao:"CKD9", name:"Slate Falls",               lat:51.1300, lon:-91.6656},
+  {icao:"CYHK", name:"Gjoa Haven",                   lat:68.6356,  lon:-95.8497}
 ];
