@@ -1006,9 +1006,10 @@ function renderRecRow(r, label, color, legTrack, legIdx, isActiveMode) {
     <span style="font-family:'DM Mono',monospace;font-size:0.58rem;color:${color};text-transform:uppercase;letter-spacing:0.1em;flex-shrink:0">${label}</span>
     <span style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${color};letter-spacing:0.05em;flex-shrink:0">${r.alt/100}</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);flex-shrink:0">GS ${r.gs}kt · ${r.totalFuel}lb · ${r.totalTimeMin}min</span>
-    <div style="display:flex;align-items:center;gap:3px;margin-left:auto;flex-shrink:0">
+    <div style="display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0">
       <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:${twColor}">${windStr}</span>
       <span style="font-size:0.9rem;transform:rotate(${arrowRot}deg);display:inline-block;opacity:0.85;transition:transform 0.3s;line-height:1;color:${twColor}">↑</span>
+      <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:${twColor};margin-left:2px">${twStr}</span>
     </div>
   </div>`;
 }
