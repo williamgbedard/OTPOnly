@@ -325,7 +325,7 @@
   .leg-rows { overflow: hidden; }
   .leg-avg { cursor: pointer; user-select: none; }
   .leg-avg:hover { background: rgba(0,0,0,0.25); }
-  .expand-hint { font-family: 'DM Mono', monospace; font-size: 0.68rem; font-weight: 700; color: var(--muted); opacity: 0.75; letter-spacing: 0.05em; }
+  .expand-hint { font-family: 'DM Mono', monospace; font-size: 0.68rem; font-weight: 700; color: var(--muted); opacity: 0.75; letter-spacing: 0.05em; margin-left: auto; }
 
   /* Error row */
   .err-row { padding: 10px 14px; font-family: 'DM Mono', monospace; font-size: 0.7rem; color: var(--severe); }
@@ -1136,7 +1136,7 @@ function renderLegs() {
       : (depLoading||arrLoading ? '…' : '—');
     const isExpanded = !!legExpanded[li];
     html += `<div class="leg-avg" onclick="toggleLeg(${li})">
-      <div class="leg-avg-label">${isExpanded ? `◈ Avg · ${label}${interpNote ? ' · <span style="opacity:0.6;font-size:0.48rem">'+interpNote+'</span>' : ''} · ` : ''}<span class="expand-hint">${isExpanded ? '▲ collapse' : '▼ details'}</span></div>
+      <div class="leg-avg-label"><span>${isExpanded ? `◈ Avg · ${label}${interpNote ? ' · <span style="opacity:0.6;font-size:0.48rem">'+interpNote+'</span>' : ''} · ` : ''}</span><span class="expand-hint">${isExpanded ? '▲ collapse' : '▼ details'}</span></div>
       <div class="avg-wind-line">
         <span class="${twClass(avg?.dir, avg?.spd, legTrack)}">${avgWindStr}</span>
         <span style="font-size:1.4rem;transform:rotate(${arrowRot}deg);display:inline-block;opacity:${avg?0.9:0.2};transition:transform 0.4s;line-height:1">↑</span>
