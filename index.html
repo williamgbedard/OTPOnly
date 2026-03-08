@@ -661,7 +661,7 @@ function showAltPopover(legIdx) {
       : twAmt < 30 ? 'var(--moderate)'
       : twAmt < 50 ? 'var(--strong)' : 'var(--severe)';
     const arrowRot = w.dir != null ? w.dir - track + 180 : 0;
-    const windStr = `${String(Math.round(w.dir)).padStart(3,'0')}° / ${Math.round(w.spd)}kt`;
+    const windStr = `${String(Math.round(w.dir)).padStart(3,'0')}°/${Math.round(w.spd)}`;
     const isSelected = legAltFt[legIdx] === altFt;
     return { altFt, gs: Math.round(gs), totalFuel: Math.round(totalFuel), totalTimeMin, tailwind: Math.round(tailwind), twLabel, twAmt, twCol, arrowRot, windStr, isSelected, _fuel: Math.round(totalFuel), _time: Math.round(((perf.time/3600)+cruiseTimeHr)*60) };
   }).filter(Boolean);
@@ -716,7 +716,7 @@ function showAltPopover(legIdx) {
          onmouseleave="this.style.background='${r.isSelected?'rgba(0,212,184,0.10)':'transparent'}'">
       <span style="font-family:'Bebas Neue',sans-serif;font-size:0.95rem;color:${r.isSelected?'var(--teal)':'var(--white)'};letter-spacing:0.05em;width:24px;flex-shrink:0">${r.altFt/100}</span>
       <span style="font-size:0.75rem;width:14px;flex-shrink:0;text-align:center">${r.badge}</span>
-      <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">GS ${r.gs} · ${r.totalFuel}lb · ${r.totalTimeMin}m</span>
+      <span style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);flex-shrink:0;white-space:nowrap">GS ${r.gs} · ${r.totalFuel}lb · ${r.totalTimeMin}m</span>
       <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
         <span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:${r.twCol};white-space:nowrap">${r.windStr}</span>
         <span style="font-size:0.85rem;display:inline-block;transform:rotate(${r.arrowRot}deg);color:${r.twCol};line-height:1">↑</span>
@@ -1129,7 +1129,7 @@ function renderRecRow(r, label, color, legTrack, legIdx, isActiveMode) {
     : Math.abs(r.tailwind) < 30 ? 'var(--moderate)'
     : Math.abs(r.tailwind) < 50 ? 'var(--strong)' : 'var(--severe)';
   const arrowRot = r.windDir != null ? r.windDir - legTrack + 180 : 0;
-  const windStr  = r.windDir != null ? `${String(r.windDir).padStart(3,'0')}° / ${r.windSpd}kt` : '';
+  const windStr  = r.windDir != null ? `${String(r.windDir).padStart(3,'0')}°/${r.windSpd}` : '';
   // Selected if: manually chosen, OR this row matches the active opt mode and no manual override
   const isSelected = legAltManual[legIdx]
     ? legAltFt[legIdx] === r.alt
@@ -1137,7 +1137,7 @@ function renderRecRow(r, label, color, legTrack, legIdx, isActiveMode) {
   return `<div onclick="selectRecAlt(${legIdx??'null'}, ${r.alt})" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:1px solid var(--border);background:${isSelected?'rgba(0,212,184,0.08)':'rgba(0,0,0,0.1)'};cursor:pointer;transition:background 0.15s" onmouseenter="this.style.background='rgba(255,255,255,0.04)'" onmouseleave="this.style.background='${isSelected?'rgba(0,212,184,0.08)':'rgba(0,0,0,0.1)'}'">
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:${color};text-transform:uppercase;letter-spacing:0.1em;flex-shrink:0">${label}</span>
     <span style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${color};letter-spacing:0.05em;flex-shrink:0">${r.alt/100}</span>
-    <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">GS ${r.gs} · ${r.totalFuel}lb · ${r.totalTimeMin}m</span>
+    <span style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);flex-shrink:0;white-space:nowrap">GS ${r.gs} · ${r.totalFuel}lb · ${r.totalTimeMin}m</span>
     <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:auto">
       <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:${twColor}">${windStr}</span>
       <span style="font-size:0.9rem;transform:rotate(${arrowRot}deg);display:inline-block;opacity:0.85;transition:transform 0.3s;line-height:1;color:${twColor}">↑</span>
