@@ -1301,23 +1301,7 @@ function loadSession() {
 
 function clearSession() {
   try { localStorage.removeItem(LS_KEY); } catch(e) {}
-  // Reset all state
-  route = []; legAltFt = []; legAltManual = []; legDepTime = [];
-  legPax = []; legExpanded = []; legMidKeys = [];
-  optMode = 'fuel';
-  crewInfo = { captain:'', fo:'', aircraft:'', date:'', dutyStart:'', dutyStop:'', scheduleDate:null };
-  document.getElementById('route-input').value = '';
-  document.getElementById('legs-container').innerHTML = '';
-  const schedInput = document.getElementById('schedule-input');
-  if (schedInput) schedInput.value = '';
-  const importStatus = document.getElementById('import-status');
-  if (importStatus) importStatus.textContent = '';
-  const importPanel = document.getElementById('import-panel');
-  if (importPanel) importPanel.style.display = 'none';
-  const importToggle = document.getElementById('import-toggle');
-  if (importToggle) importToggle.textContent = '＋ Import schedule';
-  const btn = document.getElementById('opt-mode-btn');
-  if (btn) { btn.textContent = '⛽ Fuel'; btn.style.borderColor = 'var(--teal)'; btn.style.color = 'var(--teal)'; }
+  location.reload();
 }
 
 // ── Weather briefing via Weathered Strip ────────────────────
