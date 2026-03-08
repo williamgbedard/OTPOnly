@@ -1220,12 +1220,12 @@ function renderLegs() {
 
     html += `<div class="leg-card">
       <div class="leg-header">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;justify-content:space-between">
           <div class="leg-title" style="flex:1;min-width:0">${dep.error?`<span style="color:var(--severe)">${dep.icao}</span>`:dep.icao}<span class="leg-arrow">›</span>${arr.error?`<span style="color:var(--severe)">${arr.icao}</span>`:arr.icao}${(!dep.error && !arr.error) ? `<span style="font-size:0.75rem;color:var(--muted);font-family:'DM Mono',monospace;margin-left:8px;font-weight:400">${Math.round(legDist)} nm · ${Math.round(legTrack).toString().padStart(3,'0')}°T</span>` : ''}</div>
           <button onclick="toggleLegPax(${li})" style="background:none;border:1px solid ${legPax[li]?'var(--gold)':'var(--border)'};color:${legPax[li]?'var(--gold)':'var(--muted)'};font-size:0.6rem;padding:3px 7px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap;letter-spacing:.08em;flex-shrink:0">${legPax[li]?'👤 PAX':'👤 NO PAX'}</button>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;width:100%;margin-top:6px">
-          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:auto">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;width:100%;margin-top:6px;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
             <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:'DM Mono',monospace">Depart (Z)</span>
             <input id="dep-time-${li}" class="alt-ft-input" type="text" inputmode="numeric"
               placeholder="HH:MM" value="${depTime||''}" maxlength="5"
@@ -1233,7 +1233,7 @@ function renderLegs() {
               oninput="onLegTimeText(${li},this)" />
             ${localTimeLabel ? `<span style="font-size:0.75rem;color:var(--muted);white-space:nowrap">${localTimeLabel}</span>` : ''}
           </div>
-          <div style="display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
             <div class="leg-alt-input-wrap">
               <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:'DM Mono',monospace">Altitude</span>
               <input id="alt-inp-${li}" class="alt-ft-input" type="number" value="${Math.round(ft/100)}" min="0" max="450" step="1"
