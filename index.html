@@ -300,6 +300,7 @@
     background: rgba(0,0,0,0.15);
   }
   .leg-avg-label {
+    display: flex; align-items: center; justify-content: space-between;
     font-family: 'DM Mono', monospace; font-size: 0.52rem;
     letter-spacing: 0.14em; text-transform: uppercase; color: var(--teal);
     margin-bottom: 4px;
@@ -324,7 +325,7 @@
   .leg-rows { overflow: hidden; }
   .leg-avg { cursor: pointer; user-select: none; }
   .leg-avg:hover { background: rgba(0,0,0,0.25); }
-  .expand-hint { font-family: 'DM Mono', monospace; font-size: 0.5rem; color: var(--muted); margin-left: 6px; opacity: 0.6; }
+  .expand-hint { font-family: 'DM Mono', monospace; font-size: 0.68rem; font-weight: 700; color: var(--muted); opacity: 0.75; letter-spacing: 0.05em; }
 
   /* Error row */
   .err-row { padding: 10px 14px; font-family: 'DM Mono', monospace; font-size: 0.7rem; color: var(--severe); }
