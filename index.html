@@ -716,7 +716,7 @@ function showAltPopover(legIdx) {
          onmouseleave="this.style.background='${r.isSelected?'rgba(0,212,184,0.10)':'transparent'}'">
       <span style="font-family:'Bebas Neue',sans-serif;font-size:0.95rem;color:${r.isSelected?'var(--teal)':'var(--white)'};letter-spacing:0.05em;width:24px;flex-shrink:0">${r.altFt/100}</span>
       <span style="font-size:0.75rem;width:14px;flex-shrink:0;text-align:center">${r.badge}</span>
-      <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);flex:1">GS ${r.gs}kt · ${r.totalFuel}lb · ${r.totalTimeMin}min</span>
+      <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);white-space:nowrap">GS ${r.gs}kt · ${r.totalFuel}lb · ${r.totalTimeMin}min</span>
       <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
         <span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:${r.twCol};white-space:nowrap">${r.windStr}</span>
         <span style="font-size:0.85rem;display:inline-block;transform:rotate(${r.arrowRot}deg);color:${r.twCol};line-height:1">↑</span>
@@ -1137,8 +1137,8 @@ function renderRecRow(r, label, color, legTrack, legIdx, isActiveMode) {
   return `<div onclick="selectRecAlt(${legIdx??'null'}, ${r.alt})" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:1px solid var(--border);background:${isSelected?'rgba(0,212,184,0.08)':'rgba(0,0,0,0.1)'};cursor:pointer;transition:background 0.15s" onmouseenter="this.style.background='rgba(255,255,255,0.04)'" onmouseleave="this.style.background='${isSelected?'rgba(0,212,184,0.08)':'rgba(0,0,0,0.1)'}'">
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:${color};text-transform:uppercase;letter-spacing:0.1em;flex-shrink:0">${label}</span>
     <span style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${color};letter-spacing:0.05em;flex-shrink:0">${r.alt/100}</span>
-    <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);flex-shrink:0">GS ${r.gs}kt · ${r.totalFuel}lb · ${r.totalTimeMin}min</span>
-    <div style="display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0">
+    <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted)">GS ${r.gs}kt · ${r.totalFuel}lb · ${r.totalTimeMin}min</span>
+    <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
       <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:${twColor}">${windStr}</span>
       <span style="font-size:0.9rem;transform:rotate(${arrowRot}deg);display:inline-block;opacity:0.85;transition:transform 0.3s;line-height:1;color:${twColor}">↑</span>
       <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:${twColor};margin-left:2px">${twStr}</span>
