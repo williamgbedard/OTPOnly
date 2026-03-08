@@ -637,7 +637,7 @@ function showAltPopover(legIdx) {
   const legDist  = Math.round(distNm(dep.lat, dep.lon, arr.lat, arr.lon));
   const track    = trackDeg(dep.lat, dep.lon, arr.lat, arr.lon);
   const hIdx     = timeToHourlyIdx(legDepTime[legIdx] ?? null, crewInfo.scheduleDate);
-  const maxFt    = legPax[legIdx] ? 25000 : 27000;
+  const maxFt    = legPax[legIdx] ? 25000 : 28000;
   const candidates = hemisphericAlts(track, 2000, maxFt);
 
   // Build rows for all candidates
@@ -649,7 +649,7 @@ function showAltPopover(legIdx) {
     const gs = Math.max(perf.tas + tailwind, 30);
     const climbDist = perf.dist;
     const cruiseDist = legDist - climbDist;
-    if (cruiseDist < 0 || altFt > legDist * 100 + 2000) return null;
+    if (cruiseDist < 0) return null;
     const cruiseTimeHr = cruiseDist / gs;
     const totalFuel = perf.fuel + cruiseTimeHr * perf.ff;
     const totalTimeMin = Math.round(((perf.time / 3600) + cruiseTimeHr) * 60);
@@ -1048,7 +1048,7 @@ function toggleOptMode() {
 function toggleLegPax(li) {
   legPax[li] = !legPax[li];
   // If manual alt exceeds new cap, clear it so it repopulates
-  const cap = legPax[li] ? 25000 : 27000;
+  const cap = legPax[li] ? 25000 : 28000;
   if (legAltManual[li] && legAltFt[li] > cap) legAltManual[li] = false;
   renderLegs();
   saveSession();
@@ -1180,7 +1180,7 @@ function renderLegs() {
     let ft = legAltFt[li];
     if (!legAltManual[li] && !dep.error && !arr.error) {
       if (cache[dep.icao] && cache[arr.icao] && legDist > 5) {
-        const _cap = legPax[li] ? 25000 : 27000;
+        const _cap = legPax[li] ? 25000 : 28000;
         const _rec = recommendAlts(legDist, legTrack, dep, arr, hIdx, _cap, li);
         if (_rec) {
           const chosen = optMode === 'fuel' ? _rec.bestFuel : _rec.bestTime;
@@ -1251,7 +1251,7 @@ function renderLegs() {
     const avg  = avgWindLeg(dep, arr, legDist, ft, hIdx, li);
     const arrowRot = avg?.dir != null ? avg.dir - legTrack + 180 : 0;
     const rec = (!depLoading && !arrLoading && avg && legDist > 5)
-      ? recommendAlts(legDist, legTrack, dep, arr, hIdx, legPax[li] ? 25000 : 27000, li) : null;
+      ? recommendAlts(legDist, legTrack, dep, arr, hIdx, legPax[li] ? 25000 : 28000, li) : null;
 
     // Avg banner
     const avgWindStr = avg
@@ -1318,7 +1318,7 @@ function renderLegs() {
       if (dep.error || arr.error) continue;
       const legDistS  = distNm(dep.lat, dep.lon, arr.lat, arr.lon);
       const hIdxS     = timeToHourlyIdx(legDepTime[li] ?? null, crewInfo.scheduleDate);
-      const capS      = legPax[li] ? 25000 : 27000;
+      const capS      = legPax[li] ? 25000 : 28000;
       const recS      = (cache[dep.icao] && cache[arr.icao] && legDistS > 5)
         ? recommendAlts(legDistS, trackDeg(dep.lat,dep.lon,arr.lat,arr.lon), dep, arr, hIdxS, capS, li)
         : null;
