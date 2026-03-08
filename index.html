@@ -690,7 +690,7 @@ function showAltPopover(legIdx) {
 
   const pop = document.createElement('div');
   pop.id = 'alt-popover';
-  const popW = 272;
+  const popW = Math.min(300, window.innerWidth - 16);
   const popMaxH = Math.min(window.innerHeight * 0.40, rows.length * 34);
   const spaceBelow = window.innerHeight - rect.bottom - 8;
   const spaceAbove = rect.top - 8;
@@ -702,14 +702,14 @@ function showAltPopover(legIdx) {
   pop.innerHTML = rows.map(r => `
     <div onmousedown="event.preventDefault();selectAltFromPopover(${legIdx},${r.altFt})"
          data-leg="${legIdx}" data-alt="${r.altFt}"
-         style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-bottom:1px solid rgba(255,255,255,0.07);background:${r.isSelected?'rgba(0,212,184,0.10)':'transparent'};cursor:pointer;transition:background 0.1s"
+         style="display:flex;align-items:center;gap:5px;padding:4px 10px;flex-wrap:nowrap;border-bottom:1px solid rgba(255,255,255,0.07);background:${r.isSelected?'rgba(0,212,184,0.10)':'transparent'};cursor:pointer;transition:background 0.1s"
          onmouseenter="this.style.background='rgba(255,255,255,0.05)'"
          onmouseleave="this.style.background='${r.isSelected?'rgba(0,212,184,0.10)':'transparent'}'">
       <span style="font-family:'Bebas Neue',sans-serif;font-size:0.95rem;color:${r.isSelected?'var(--teal)':'white'};letter-spacing:0.05em;width:24px;flex-shrink:0">${r.altFt/100}</span>
       <span style="font-size:0.75rem;width:14px;flex-shrink:0;text-align:center">${r.badge}</span>
       <span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:rgba(255,255,255,0.38);flex:1">GS ${r.gs}kt · ${r.totalFuel}lb · ${r.totalTimeMin}min</span>
       <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
-        <span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:${r.twCol}">${r.windStr}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:${r.twCol};white-space:nowrap">${r.windStr}</span>
         <span style="font-size:0.85rem;display:inline-block;transform:rotate(${r.arrowRot}deg);color:${r.twCol};line-height:1">↑</span>
         <span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:${r.twCol};margin-left:2px">${r.twLabel} ${r.twAmt}kt</span>
       </div>
