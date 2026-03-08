@@ -684,9 +684,16 @@ function showAltPopover(legIdx) {
 
   const overlay = document.createElement('div');
   overlay.id = 'alt-popover-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:999';
-  overlay.addEventListener('mousedown', closeAltPopover);
-  overlay.addEventListener('touchstart', closeAltPopover, {passive:true});
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:998;pointer-events:none';
+  // Close on any tap/click outside the popover itself
+  const _closeOnOutside = e => {
+    const pop = document.getElementById('alt-popover');
+    if (pop && !pop.contains(e.target)) { closeAltPopover(); document.removeEventListener('mousedown', _closeOnOutside, true); document.removeEventListener('touchend', _closeOnOutside, true); }
+  };
+  setTimeout(() => {
+    document.addEventListener('mousedown', _closeOnOutside, true);
+    document.addEventListener('touchend', _closeOnOutside, true);
+  }, 0);
 
   const pop = document.createElement('div');
   pop.id = 'alt-popover';
@@ -694,10 +701,12 @@ function showAltPopover(legIdx) {
   const popMaxH = Math.min(window.innerHeight * 0.40, rows.length * 34);
   const spaceBelow = window.innerHeight - rect.bottom - 8;
   const spaceAbove = rect.top - 8;
-  const useAbove = spaceBelow < 180 && spaceAbove > spaceBelow;
-  const topPos = useAbove ? Math.max(8, rect.top - popMaxH - 4) : rect.bottom + 4;
+  const useAbove = spaceBelow < 220 || spaceAbove > spaceBelow;
+  const availH = useAbove ? spaceAbove : spaceBelow;
+  const maxH = Math.min(Math.floor(window.innerHeight * 0.55), availH);
+  const topPos = useAbove ? Math.max(8, rect.top - maxH - 4) : rect.bottom + 4;
   const leftPos = Math.min(rect.left, window.innerWidth - popW - 8);
-  pop.style.cssText = `position:fixed;left:${leftPos}px;top:${topPos}px;width:${popW}px;max-height:40vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:#0d1b34;border:1px solid rgba(255,255,255,0.15);border-radius:12px;z-index:1000;box-shadow:0 8px 32px rgba(0,0,0,0.6)`;
+  pop.style.cssText = `position:fixed;left:${leftPos}px;top:${topPos}px;width:${popW}px;max-height:${maxH}px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:#0d1b34;border:1px solid rgba(255,255,255,0.15);border-radius:12px;z-index:1000;box-shadow:0 8px 32px rgba(0,0,0,0.6)`;
 
   pop.innerHTML = rows.map(r => `
     <div onmousedown="event.preventDefault();selectAltFromPopover(${legIdx},${r.altFt})"
@@ -1050,6 +1059,7 @@ function toggleLegPax(li) {
   // If manual alt exceeds new cap, clear it so it repopulates
   const cap = legPax[li] ? 25000 : 28000;
   if (legAltManual[li] && legAltFt[li] > cap) legAltManual[li] = false;
+  closeAltPopover();
   renderLegs();
   saveSession();
 }
