@@ -395,7 +395,7 @@
         <textarea id="schedule-input" placeholder="Paste schedule table:&#10;Origin  Destination  Departure  Arrival&#10;YQT     YAT          13:15      15:05&#10;YAT     YQT          20:50      22:40"
           style="width:100%;height:110px;background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:8px;color:var(--white);font-family:'DM Mono',monospace;font-size:0.7rem;padding:10px;resize:vertical;outline:none;line-height:1.6"
           spellcheck="false"></textarea>
-        <button onclick="importSchedule()" style="margin-top:6px;background:var(--teal);color:#000;border:none;border-radius:8px;padding:7px 18px;font-size:0.75rem;font-weight:600;cursor:pointer;letter-spacing:.04em">
+        <button onclick="importSchedule()" style="margin-top:6px;background:var(--teal);color:#000;border:none;border-radius:6px;padding:7px 18px;font-size:0.75rem;font-weight:600;cursor:pointer;letter-spacing:.08em;font-family:'DM Mono',monospace;text-transform:uppercase">
           Import &amp; Load
         </button>
         <span id="import-status" style="margin-left:10px;font-size:0.65rem;color:var(--muted)"></span>
@@ -705,9 +705,9 @@ function showAltPopover(legIdx) {
          style="display:flex;align-items:center;gap:5px;padding:4px 10px;flex-wrap:nowrap;border-bottom:1px solid rgba(255,255,255,0.07);background:${r.isSelected?'rgba(0,212,184,0.10)':'transparent'};cursor:pointer;transition:background 0.1s"
          onmouseenter="this.style.background='rgba(255,255,255,0.05)'"
          onmouseleave="this.style.background='${r.isSelected?'rgba(0,212,184,0.10)':'transparent'}'">
-      <span style="font-family:'Bebas Neue',sans-serif;font-size:0.95rem;color:${r.isSelected?'var(--teal)':'white'};letter-spacing:0.05em;width:24px;flex-shrink:0">${r.altFt/100}</span>
+      <span style="font-family:'Bebas Neue',sans-serif;font-size:0.95rem;color:${r.isSelected?'var(--teal)':'var(--white)'};letter-spacing:0.05em;width:24px;flex-shrink:0">${r.altFt/100}</span>
       <span style="font-size:0.75rem;width:14px;flex-shrink:0;text-align:center">${r.badge}</span>
-      <span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:rgba(255,255,255,0.38);flex:1">GS ${r.gs}kt · ${r.totalFuel}lb · ${r.totalTimeMin}min</span>
+      <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);flex:1">GS ${r.gs}kt · ${r.totalFuel}lb · ${r.totalTimeMin}min</span>
       <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
         <span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:${r.twCol};white-space:nowrap">${r.windStr}</span>
         <span style="font-size:0.85rem;display:inline-block;transform:rotate(${r.arrowRot}deg);color:${r.twCol};line-height:1">↑</span>
@@ -1125,7 +1125,7 @@ function renderRecRow(r, label, color, legTrack, legIdx, isActiveMode) {
     ? legAltFt[legIdx] === r.alt
     : isActiveMode;
   return `<div onclick="selectRecAlt(${legIdx??'null'}, ${r.alt})" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:1px solid var(--border);background:${isSelected?'rgba(0,212,184,0.08)':'rgba(0,0,0,0.1)'};cursor:pointer;transition:background 0.15s" onmouseenter="this.style.background='rgba(255,255,255,0.04)'" onmouseleave="this.style.background='${isSelected?'rgba(0,212,184,0.08)':'rgba(0,0,0,0.1)'}'">
-    <span style="font-family:'DM Mono',monospace;font-size:0.58rem;color:${color};text-transform:uppercase;letter-spacing:0.1em;flex-shrink:0">${label}</span>
+    <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:${color};text-transform:uppercase;letter-spacing:0.1em;flex-shrink:0">${label}</span>
     <span style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${color};letter-spacing:0.05em;flex-shrink:0">${r.alt/100}</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);flex-shrink:0">GS ${r.gs}kt · ${r.totalFuel}lb · ${r.totalTimeMin}min</span>
     <div style="display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0">
@@ -1212,20 +1212,20 @@ function renderLegs() {
       <div class="leg-header">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap">
           <div class="leg-title" style="flex:1;min-width:0">${dep.error?`<span style="color:var(--severe)">${dep.icao}</span>`:dep.icao}<span class="leg-arrow">›</span>${arr.error?`<span style="color:var(--severe)">${arr.icao}</span>`:arr.icao}${(!dep.error && !arr.error) ? `<span style="font-size:0.75rem;color:var(--muted);font-family:'DM Mono',monospace;margin-left:8px;font-weight:400">${Math.round(legDist)} nm · ${Math.round(legTrack).toString().padStart(3,'0')}°T</span>` : ''}</div>
-          <button onclick="toggleLegPax(${li})" style="background:none;border:1px solid ${legPax[li]?'var(--gold)':'var(--border)'};color:${legPax[li]?'var(--gold)':'var(--muted)'};font-size:0.6rem;padding:3px 7px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap;letter-spacing:.04em;flex-shrink:0">${legPax[li]?'👤 PAX':'👤 NO PAX'}</button>
+          <button onclick="toggleLegPax(${li})" style="background:none;border:1px solid ${legPax[li]?'var(--gold)':'var(--border)'};color:${legPax[li]?'var(--gold)':'var(--muted)'};font-size:0.6rem;padding:3px 7px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap;letter-spacing:.08em;flex-shrink:0">${legPax[li]?'👤 PAX':'👤 NO PAX'}</button>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;width:100%;margin-top:6px">
           <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
-            <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Depart (Z)</span>
+            <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:'DM Mono',monospace">Depart (Z)</span>
             <input id="dep-time-${li}" class="alt-ft-input" type="text" inputmode="numeric"
               placeholder="HH:MM" value="${depTime||''}" maxlength="5"
-              style="width:52px;padding:4px 4px;font-size:0.75rem;text-align:center"
+              style="width:52px;padding:4px;font-size:0.75rem;text-align:center"
               oninput="onLegTimeText(${li},this)" />
             ${localTimeLabel ? `<span style="font-size:0.75rem;color:var(--muted);white-space:nowrap">${localTimeLabel}</span>` : ''}
           </div>
           <div style="display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0">
             <div class="leg-alt-input-wrap">
-              <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Altitude</span>
+              <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:'DM Mono',monospace">Altitude</span>
               <input id="alt-inp-${li}" class="alt-ft-input" type="number" value="${Math.round(ft/100)}" min="0" max="450" step="1"
                 readonly
                 onchange="onLegAltChange(${li})" onblur="onLegAltChange(${li})"
@@ -1330,9 +1330,9 @@ function renderLegs() {
       const mins = totalTimeSum % 60;
       const allLegs = route.length - 1;
       const partial  = legsWithData < allLegs
-        ? `<span style="font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--muted);opacity:0.6"> ${legsWithData}/${allLegs} legs</span>` : '';
+        ? `<span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);opacity:0.6"> ${legsWithData}/${allLegs} legs</span>` : '';
       summaryHtml = `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;margin:10px 0 4px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:14px;backdrop-filter:blur(8px)">
-        <span style="font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase">Route Total${partial}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase">Route Total${partial}</span>
         <span style="display:flex;gap:20px;align-items:baseline">
           <span style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--teal);letter-spacing:0.05em">${Math.round(totalFuelSum)}<span style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);margin-left:3px">lb</span></span>
           <span style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--teal);letter-spacing:0.05em">${hrs}h ${String(mins).padStart(2,'0')}m</span>
@@ -1487,18 +1487,18 @@ function showFinalize() {
     modal.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
         <span style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--gold);letter-spacing:0.1em">📋 Log Sheet</span>
-        <button onclick="document.getElementById('finalize-modal').style.display='none'" style="background:none;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;font-size:0.7rem">✕ Close</button>
+        <button onclick="document.getElementById('finalize-modal').style.display='none'" style="background:none;border:1px solid var(--border);color:var(--muted);padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;font-size:0.65rem">✕ Close</button>
       </div>
       <div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--teal);background:rgba(0,212,184,0.08);border:1px solid rgba(0,212,184,0.2);border-radius:8px;padding:8px 10px;flex-shrink:0;line-height:1.8">
         1. Tap <b>Copy Block 1</b> → select cell <b>N2</b> in Numbers → paste<br>
         2. Tap <b>Copy Block 2</b> → select cell <b>A8</b> in Numbers → paste
       </div>
-      <div style="font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--muted);flex-shrink:0">BLOCK 1 — Aircraft &amp; Crew → paste at N2</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);flex-shrink:0">BLOCK 1 — Aircraft &amp; Crew → paste at N2</div>
       <textarea id="finalize-b1" readonly style="height:72px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:8px;color:var(--white);font-family:'DM Mono',monospace;font-size:0.65rem;padding:10px;resize:none;outline:none;line-height:1.8;white-space:pre;overflow:auto;flex-shrink:0"></textarea>
-      <button onclick="copyFinalizeBlock(1)" style="background:var(--teal);color:#000;border:none;border-radius:8px;padding:9px;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:'DM Mono',monospace;flex-shrink:0">⎘ Copy Block 1</button>
-      <div style="font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--muted);flex-shrink:0;margin-top:4px">BLOCK 2 — Legs → paste at A8</div>
+      <button onclick="copyFinalizeBlock(1)" style="background:var(--teal);color:#000;border:none;border-radius:6px;padding:7px 18px;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:'DM Mono',monospace;flex-shrink:0">⎘ Copy Block 1</button>
+      <div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);flex-shrink:0;margin-top:4px">BLOCK 2 — Legs → paste at A8</div>
       <textarea id="finalize-b2" readonly style="flex:1;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:8px;color:var(--white);font-family:'DM Mono',monospace;font-size:0.65rem;padding:10px;resize:none;outline:none;line-height:1.8;white-space:pre;overflow:auto"></textarea>
-      <button onclick="copyFinalizeBlock(2)" style="background:var(--gold);color:#000;border:none;border-radius:8px;padding:9px;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:'DM Mono',monospace;flex-shrink:0">⎘ Copy Block 2</button>
+      <button onclick="copyFinalizeBlock(2)" style="background:var(--gold);color:#000;border:none;border-radius:6px;padding:7px 18px;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:'DM Mono',monospace;flex-shrink:0">⎘ Copy Block 2</button>
       <span id="finalize-copy-status" style="text-align:center;font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--teal);min-height:1em;flex-shrink:0"></span>
     `;
     document.body.appendChild(modal);
