@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <!-- v2 - CYXL CYAC CYVZ CPV7 added -->
 <html lang="en">
@@ -626,6 +627,97 @@ const twClass = (windDir, windSpd, track) => {
   if (hw < 15) return 'spd-calm'; if (hw < 30) return 'spd-moderate'; if (hw < 50) return 'spd-strong'; return 'spd-severe';
 };
 
+// ── Alt popover: show all valid hemispheric altitudes ────────
+function showAltPopover(legIdx) {
+  // Remove any existing popover
+  closeAltPopover();
+
+  const dep = route[legIdx], arr = route[legIdx + 1];
+  if (!dep || !arr || dep.error || arr.error) return;
+
+  const legDist  = Math.round(distNm(dep.lat, dep.lon, arr.lat, arr.lon));
+  const track    = trackDeg(dep.lat, dep.lon, arr.lat, arr.lon);
+  const hIdx     = timeToHourlyIdx(legDepTime[legIdx] ?? null, crewInfo.scheduleDate);
+  const maxFt    = legPax[legIdx] ? 25000 : 27000;
+  const candidates = hemisphericAlts(track, 2000, maxFt);
+
+  // Build rows for all candidates
+  const rows = candidates.map(altFt => {
+    const w = avgWindLeg(dep, arr, legDist, altFt, hIdx, legIdx);
+    if (!w) return null;
+    const perf = pc12AtAlt(altFt);
+    const tailwind = windComponent(w.dir, w.spd ?? 0, track);
+    const gs = Math.max(perf.tas + tailwind, 30);
+    const climbDist = perf.dist;
+    const cruiseDist = legDist - climbDist;
+    if (cruiseDist < 0 || altFt > legDist * 100 + 2000) return null;
+    const cruiseTimeHr = cruiseDist / gs;
+    const totalFuel = perf.fuel + cruiseTimeHr * perf.ff;
+    const totalTimeMin = Math.round(((perf.time / 3600) + cruiseTimeHr) * 60);
+    const isHw = tailwind < 0;
+    const twLabel = isHw ? 'HW' : 'TW';
+    const twAmt = Math.abs(Math.round(tailwind));
+    const twCol = !isHw ? 'var(--calm)'
+      : twAmt < 15 ? 'var(--calm)'
+      : twAmt < 30 ? 'var(--moderate)'
+      : twAmt < 50 ? 'var(--strong)' : 'var(--severe)';
+    const arrowRot = w.dir != null ? w.dir - track + 180 : 0;
+    const windStr = `${String(Math.round(w.dir)).padStart(3,'0')}° / ${Math.round(w.spd)}kt`;
+    const isSelected = legAltFt[legIdx] === altFt;
+    return { altFt, gs: Math.round(gs), totalFuel: Math.round(totalFuel), totalTimeMin, tailwind: Math.round(tailwind), twLabel, twAmt, twCol, arrowRot, windStr, isSelected };
+  }).filter(Boolean);
+
+  if (!rows.length) return;
+
+  // Position popover below the input
+  const inp = document.getElementById(`alt-inp-${legIdx}`);
+  if (!inp) return;
+  const rect = inp.getBoundingClientRect();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'alt-popover-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:999';
+  overlay.addEventListener('mousedown', closeAltPopover);
+  overlay.addEventListener('touchstart', closeAltPopover, {passive:true});
+
+  const pop = document.createElement('div');
+  pop.id = 'alt-popover';
+  pop.style.cssText = `position:fixed;left:${Math.min(rect.left, window.innerWidth - 280)}px;top:${rect.bottom + 4}px;width:272px;max-height:55vh;overflow-y:auto;background:#0d1b34;border:1px solid rgba(255,255,255,0.15);border-radius:12px;z-index:1000;box-shadow:0 8px 32px rgba(0,0,0,0.6)`;
+
+  pop.innerHTML = rows.map(r => `
+    <div onmousedown="event.preventDefault();selectAltFromPopover(${legIdx},${r.altFt})"
+         ontouchstart="event.preventDefault();selectAltFromPopover(${legIdx},${r.altFt})"
+         style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,0.07);background:${r.isSelected?'rgba(0,212,184,0.10)':'transparent'};cursor:pointer;transition:background 0.1s"
+         onmouseenter="this.style.background='rgba(255,255,255,0.05)'"
+         onmouseleave="this.style.background='${r.isSelected?'rgba(0,212,184,0.10)':'transparent'}'">
+      <span style="font-family:'Bebas Neue',sans-serif;font-size:1.15rem;color:${r.isSelected?'var(--teal)':'white'};letter-spacing:0.05em;width:28px;flex-shrink:0">${r.altFt/100}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:rgba(255,255,255,0.38);flex:1">GS ${r.gs}kt · ${r.totalFuel}lb · ${r.totalTimeMin}min</span>
+      <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
+        <span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:${r.twCol}">${r.windStr}</span>
+        <span style="font-size:0.85rem;display:inline-block;transform:rotate(${r.arrowRot}deg);color:${r.twCol};line-height:1">↑</span>
+        <span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:${r.twCol};margin-left:2px">${r.twLabel} ${r.twAmt}kt</span>
+      </div>
+    </div>`).join('');
+
+  document.body.appendChild(overlay);
+  document.body.appendChild(pop);
+}
+
+function selectAltFromPopover(legIdx, altFt) {
+  closeAltPopover();
+  legAltFt[legIdx]     = altFt;
+  legAltManual[legIdx] = true;
+  const inp = document.getElementById(`alt-inp-${legIdx}`);
+  if (inp) inp.value = altFt / 100;
+  renderLegs();
+  saveSession();
+}
+
+function closeAltPopover() {
+  document.getElementById('alt-popover-overlay')?.remove();
+  document.getElementById('alt-popover')?.remove();
+}
+
 // ── Recommend altitudes for a leg ─────────────────────────
 // Returns {bestFuel, bestTime} each: {alt, totalFuel, totalTimeMin, gs, tas, tailwind}
 // Samples wind at each candidate altitude individually for accuracy
@@ -1106,7 +1198,8 @@ function renderLegs() {
             <div class="leg-alt-input-wrap">
               <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Altitude</span>
               <input id="alt-inp-${li}" class="alt-ft-input" type="number" value="${Math.round(ft/100)}" min="0" max="450" step="1"
-                onchange="onLegAltChange(${li})" onblur="onLegAltChange(${li})" />
+                onchange="onLegAltChange(${li})" onblur="onLegAltChange(${li})"
+                onfocus="showAltPopover(${li})" />
             </div>
           </div>
         </div>
