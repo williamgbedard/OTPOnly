@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <!-- v2 - CYXL CYAC CYVZ CPV7 added -->
 <html lang="en">
@@ -455,6 +456,26 @@ let legMidKeys = []; // pre-computed midpoint cache keys per leg (avoids gcInter
 let crewInfo = { captain: '', fo: '', aircraft: '', date: '', dutyStart: '', dutyStop: '' }; // parsed from email
 
 // ── METAR / TAF popover ────────────────────────────────────
+function airportLatLon(icao) {
+  if (typeof airports === 'undefined') return null;
+  const a = airports.find(x => x.icao === icao);
+  return a ? { lat: a.lat, lon: a.lon } : null;
+}
+
+function bboxAround(lat, lon, nmRadius) {
+  const dLat = nmRadius / 60;
+  const dLon = nmRadius / (60 * Math.cos(lat * Math.PI / 180));
+  return `${(lat-dLat).toFixed(3)},${(lon-dLon).toFixed(3)},${(lat+dLat).toFixed(3)},${(lon+dLon).toFixed(3)}`;
+}
+
+function distNmCoord(lat1, lon1, lat2, lon2) {
+  const R = 3440.065;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLon = (lon2-lon1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
 async function fetchWx(icao) {
   if (wxCache[icao] && !wxCache[icao].loading) return;
   wxCache[icao] = { loading: true };
@@ -464,15 +485,48 @@ async function fetchWx(icao) {
       fetch(`https://aviationweather.gov/api/data/taf?ids=${icao}&format=json`)
     ]);
     const [mData, tData] = await Promise.all([mRes.json(), tRes.json()]);
-    wxCache[icao] = {
-      metar: mData?.[0]?.rawOb  || null,
-      taf:   tData?.[0]?.rawTAF || null,
-      loading: false,
-    };
+    const metar = mData?.[0]?.rawOb || null;
+    const taf   = tData?.[0]?.rawTAF || null;
+
+    if (metar || taf) {
+      wxCache[icao] = { metar, taf, loading: false };
+    } else {
+      // Fallback: bbox search for nearest reporting station
+      const pos = airportLatLon(icao);
+      if (!pos) {
+        wxCache[icao] = { metar: null, taf: null, loading: false };
+      } else {
+        const bbox = bboxAround(pos.lat, pos.lon, 200);
+        const fbRes = await fetch(`https://aviationweather.gov/api/data/metar?bbox=${bbox}&format=json`);
+        const fbData = await fbRes.json();
+        if (fbData && fbData.length > 0) {
+          // Pick nearest station
+          const nearest = fbData
+            .filter(s => s.icaoId !== icao && s.rawOb)
+            .map(s => ({ ...s, dist: Math.round(distNmCoord(pos.lat, pos.lon, s.lat, s.lon)) }))
+            .sort((a, b) => a.dist - b.dist)[0];
+          if (nearest) {
+            // Also try to get TAF for nearest station
+            const ntRes = await fetch(`https://aviationweather.gov/api/data/taf?ids=${nearest.icaoId}&format=json`);
+            const ntData = await ntRes.json();
+            wxCache[icao] = {
+              metar: nearest.rawOb,
+              taf: ntData?.[0]?.rawTAF || null,
+              nearest: nearest.icaoId,
+              nearestDist: nearest.dist,
+              loading: false,
+            };
+          } else {
+            wxCache[icao] = { metar: null, taf: null, loading: false };
+          }
+        } else {
+          wxCache[icao] = { metar: null, taf: null, loading: false };
+        }
+      }
+    }
   } catch(e) {
     wxCache[icao] = { metar: null, taf: null, loading: false, error: true };
   }
-  // Update popover if it's open for this icao
   const pop = document.getElementById('wx-popover');
   if (pop && pop.dataset.icao === icao) renderWxPopoverContent(icao);
 }
@@ -495,8 +549,9 @@ function renderWxPopoverContent(icao) {
   if (!wx || wx.loading) {
     inner += `<div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted)">Loading…</div>`;
   } else if (wx.error || (!wx.metar && !wx.taf)) {
-    inner += `<div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted)">No wx available for ${icao}</div>`;
+    inner += `<div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted)">No reporting station found within 200nm</div>`;
   } else {
+    if (wx.nearest) inner += `<div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);margin-bottom:8px">No wx for ${icao} — showing ${wx.nearest} · ${wx.nearestDist}nm away</div>`;
     if (wx.metar) inner += `
       <div style="margin-bottom:8px">
         <div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--teal);letter-spacing:.08em;margin-bottom:3px">METAR</div>
