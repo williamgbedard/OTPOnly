@@ -495,9 +495,9 @@ async function fetchWx(icao) {
       fetch(`https://aviationweather.gov/api/data/taf?ids=${icao}&format=json`)
     ]);
     const [mData, tData] = await Promise.all([mRes.json(), tRes.json()]);
-    const metar  = mData?.[0]?.rawOb   || null;
-    const taf    = tData?.[0]?.rawTAF  || null;
-    const fltCat = mData?.[0]?.fltCat  || null;
+    const metar  = Array.isArray(mData) ? (mData[0]?.rawOb  || null) : null;
+    const taf    = Array.isArray(tData) ? (tData[0]?.rawTAF || null) : null;
+    const fltCat = Array.isArray(mData) ? (mData[0]?.fltCat || null) : null;
 
     if (metar || taf) {
       wxCache[icao] = { metar, taf, fltCat, loading: false };
@@ -507,7 +507,7 @@ async function fetchWx(icao) {
       if (!pos) {
         wxCache[icao] = { metar: null, taf: null, loading: false };
       } else {
-        const bbox = bboxAround(pos.lat, pos.lon, 200);
+        const bbox = bboxAround(pos.lat, pos.lon, 100);
         const fbRes = await fetch(`https://aviationweather.gov/api/data/metar?bbox=${bbox}&format=json`);
         const fbData = await fbRes.json();
         if (fbData && fbData.length > 0) {
