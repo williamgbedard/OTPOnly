@@ -490,39 +490,36 @@ async function fetchWx(icao) {
   if (wxCache[icao] && !wxCache[icao].loading) return;
   wxCache[icao] = { loading: true };
   try {
-    const [mRes, tRes] = await Promise.all([
-      fetch(`https://aviationweather.gov/api/data/metar?ids=${icao}&format=json`),
-      fetch(`https://aviationweather.gov/api/data/taf?ids=${icao}&format=json`)
-    ]);
-    const [mData, tData] = await Promise.all([mRes.json(), tRes.json()]);
-    const metar  = Array.isArray(mData) ? (mData[0]?.rawOb  || null) : null;
-    const taf    = Array.isArray(tData) ? (tData[0]?.rawTAF || null) : null;
-    const fltCat = Array.isArray(mData) ? (mData[0]?.fltCat || null) : null;
-
-    if (metar || taf) {
-      wxCache[icao] = { metar, taf, fltCat, loading: false };
+    const pos = airportLatLon(icao);
+    if (!pos) {
+      wxCache[icao] = { metar: null, taf: null, loading: false };
     } else {
-      // Fallback: bbox search for nearest reporting station
-      const pos = airportLatLon(icao);
-      if (!pos) {
-        wxCache[icao] = { metar: null, taf: null, loading: false };
-      } else {
-        const bbox = bboxAround(pos.lat, pos.lon, 100);
-        const fbRes = await fetch(`https://aviationweather.gov/api/data/metar?bbox=${bbox}&format=json`);
-        const fbData = await fbRes.json();
-        if (fbData && fbData.length > 0) {
-          // Pick nearest station
+      const bbox = bboxAround(pos.lat, pos.lon, 100);
+      const fbRes = await fetch(`https://aviationweather.gov/api/data/metar?bbox=${bbox}&format=json`);
+      const fbData = await fbRes.json();
+      if (Array.isArray(fbData) && fbData.length > 0) {
+        // Find exact match first, then nearest
+        const exact = fbData.find(s => s.icaoId === icao && s.rawOb);
+        if (exact) {
+          const tRes = await fetch(`https://aviationweather.gov/api/data/taf?ids=${icao}&format=json`);
+          const tData = await tRes.json();
+          wxCache[icao] = {
+            metar: exact.rawOb,
+            taf: Array.isArray(tData) ? (tData[0]?.rawTAF || null) : null,
+            fltCat: exact.fltCat || null,
+            loading: false,
+          };
+        } else {
           const nearest = fbData
-            .filter(s => s.icaoId !== icao && s.rawOb)
+            .filter(s => s.rawOb)
             .map(s => ({ ...s, dist: Math.round(distNmCoord(pos.lat, pos.lon, s.lat, s.lon)) }))
             .sort((a, b) => a.dist - b.dist)[0];
           if (nearest) {
-            // Also try to get TAF for nearest station
             const ntRes = await fetch(`https://aviationweather.gov/api/data/taf?ids=${nearest.icaoId}&format=json`);
             const ntData = await ntRes.json();
             wxCache[icao] = {
               metar: nearest.rawOb,
-              taf: ntData?.[0]?.rawTAF || null,
+              taf: Array.isArray(ntData) ? (ntData[0]?.rawTAF || null) : null,
               fltCat: nearest.fltCat || null,
               nearest: nearest.icaoId,
               nearestDist: nearest.dist,
@@ -531,9 +528,9 @@ async function fetchWx(icao) {
           } else {
             wxCache[icao] = { metar: null, taf: null, loading: false };
           }
-        } else {
-          wxCache[icao] = { metar: null, taf: null, loading: false };
         }
+      } else {
+        wxCache[icao] = { metar: null, taf: null, loading: false };
       }
     }
   } catch(e) {
