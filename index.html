@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <!-- v2 - CYXL CYAC CYVZ CPV7 added -->
 <html lang="en">
@@ -456,6 +455,17 @@ let legMidKeys = []; // pre-computed midpoint cache keys per leg (avoids gcInter
 let crewInfo = { captain: '', fo: '', aircraft: '', date: '', dutyStart: '', dutyStop: '' }; // parsed from email
 
 // ── METAR / TAF popover ────────────────────────────────────
+function fltCatColor(cat) {
+  if (!cat) return null;
+  switch (cat.toUpperCase()) {
+    case 'VFR':  return '#00d4b8'; // teal/green
+    case 'MVFR': return '#f5c842'; // yellow
+    case 'IFR':  return '#ff8c00'; // orange
+    case 'LIFR': return '#ff3b3b'; // red
+    default:     return null;
+  }
+}
+
 function airportLatLon(icao) {
   if (typeof airports === 'undefined') return null;
   const a = airports.find(x => x.icao === icao);
@@ -485,11 +495,12 @@ async function fetchWx(icao) {
       fetch(`https://aviationweather.gov/api/data/taf?ids=${icao}&format=json`)
     ]);
     const [mData, tData] = await Promise.all([mRes.json(), tRes.json()]);
-    const metar = mData?.[0]?.rawOb || null;
-    const taf   = tData?.[0]?.rawTAF || null;
+    const metar  = mData?.[0]?.rawOb   || null;
+    const taf    = tData?.[0]?.rawTAF  || null;
+    const fltCat = mData?.[0]?.fltCat  || null;
 
     if (metar || taf) {
-      wxCache[icao] = { metar, taf, loading: false };
+      wxCache[icao] = { metar, taf, fltCat, loading: false };
     } else {
       // Fallback: bbox search for nearest reporting station
       const pos = airportLatLon(icao);
@@ -512,6 +523,7 @@ async function fetchWx(icao) {
             wxCache[icao] = {
               metar: nearest.rawOb,
               taf: ntData?.[0]?.rawTAF || null,
+              fltCat: nearest.fltCat || null,
               nearest: nearest.icaoId,
               nearestDist: nearest.dist,
               loading: false,
@@ -1307,9 +1319,12 @@ function renderWindRow(wp, w, loading, legTrack) {
   const rot = dir != null ? dir - legTrack + 180 : 0;
   const windStr = loading ? '…' : (dir != null ? `${fmtDir(dir)} / ${fmtSpd(spd)} kt` : '—');
   const isMidpoint = wp.icao.includes('nm');
+  const wxEntry = wxCache[wp.icao];
+  const catColor = wxEntry && !wxEntry.loading ? fltCatColor(wxEntry.fltCat) : null;
+  const catDot = catColor ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${catColor};margin-left:4px;flex-shrink:0;vertical-align:middle"></span>` : '';
   const icaoEl = isMidpoint
     ? `<div class="lr-icao">${wp.icao}</div>`
-    : `<div class="lr-icao" onclick="showWxPopover('${wp.icao}', this)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">${wp.icao}</div>`;
+    : `<div class="lr-icao" onclick="showWxPopover('${wp.icao}', this)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;display:flex;align-items:center">${wp.icao}${catDot}</div>`;
   return `<div class="leg-row">
     ${icaoEl}
     <div class="lr-name">${wp.name ?? ''}</div>
@@ -1868,6 +1883,10 @@ async function handleGo() {
 
   btn.classList.remove('loading');
   saveSession();
+
+  // Fetch wx for all valid airports in background — populates fltCat dots
+  const uniqueIcaos = [...new Set(validAps.map(a => a.icao))];
+  uniqueIcaos.forEach(icao => { if (!wxCache[icao] || wxCache[icao].loading) fetchWx(icao); });
 }
 
 document.getElementById('route-input').addEventListener('keydown', e => {
