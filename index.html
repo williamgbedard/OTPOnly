@@ -442,6 +442,7 @@ const PL_BOUNDS = PRESSURE_LEVELS.slice(0, -1).map((lo, i) => [lo, PRESSURE_LEVE
 
 // ── State ──────────────────────────────────────────────────
 let cache      = {};
+let wxCache    = {};  // METAR/TAF per ICAO
 let cacheTime  = {};  // timestamp (ms) when each key was fetched
 let route      = [];   // [{icao,name,lat,lon} | {icao,error:true}]
 let legAltFt   = [];   // per-leg altitude in feet (user typed)
@@ -452,6 +453,104 @@ let legAltManual = []; // true if user has manually overridden the altitude for 
 let legPax     = []; // true if leg has passengers (limits alt to 25000)
 let legMidKeys = []; // pre-computed midpoint cache keys per leg (avoids gcInterp in hot path)
 let crewInfo = { captain: '', fo: '', aircraft: '', date: '', dutyStart: '', dutyStop: '' }; // parsed from email
+
+// ── METAR / TAF popover ────────────────────────────────────
+async function fetchWx(icao) {
+  if (wxCache[icao] && !wxCache[icao].loading) return;
+  wxCache[icao] = { loading: true };
+  try {
+    const [mRes, tRes] = await Promise.all([
+      fetch(`https://aviationweather.gov/api/data/metar?ids=${icao}&format=json`),
+      fetch(`https://aviationweather.gov/api/data/taf?ids=${icao}&format=json`)
+    ]);
+    const [mData, tData] = await Promise.all([mRes.json(), tRes.json()]);
+    wxCache[icao] = {
+      metar: mData?.[0]?.rawOb  || null,
+      taf:   tData?.[0]?.rawTAF || null,
+      loading: false,
+    };
+  } catch(e) {
+    wxCache[icao] = { metar: null, taf: null, loading: false, error: true };
+  }
+  // Update popover if it's open for this icao
+  const pop = document.getElementById('wx-popover');
+  if (pop && pop.dataset.icao === icao) renderWxPopoverContent(icao);
+}
+
+function closeWxPopover() {
+  const pop = document.getElementById('wx-popover');
+  const ov  = document.getElementById('wx-popover-overlay');
+  if (pop) pop.remove();
+  if (ov)  ov.remove();
+}
+
+function renderWxPopoverContent(icao) {
+  const pop = document.getElementById('wx-popover');
+  if (!pop) return;
+  const wx = wxCache[icao];
+  let inner = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <span style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--teal);letter-spacing:.08em">${icao}</span>
+    <button onclick="closeWxPopover()" style="background:none;border:none;color:var(--muted);font-size:1rem;cursor:pointer;padding:0 4px">✕</button>
+  </div>`;
+  if (!wx || wx.loading) {
+    inner += `<div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted)">Loading…</div>`;
+  } else if (wx.error || (!wx.metar && !wx.taf)) {
+    inner += `<div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted)">No wx available for ${icao}</div>`;
+  } else {
+    if (wx.metar) inner += `
+      <div style="margin-bottom:8px">
+        <div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--teal);letter-spacing:.08em;margin-bottom:3px">METAR</div>
+        <div style="font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--white);line-height:1.6;word-break:break-all">${wx.metar}</div>
+      </div>`;
+    if (wx.taf) inner += `
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--gold);letter-spacing:.08em;margin-bottom:3px">TAF</div>
+        <div style="font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--white);line-height:1.6;white-space:pre-wrap;word-break:break-all">${wx.taf}</div>
+      </div>`;
+  }
+  pop.innerHTML = inner;
+}
+
+function showWxPopover(icao, triggerEl) {
+  closeWxPopover();
+
+  // Overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'wx-popover-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:998;pointer-events:none';
+  const _closeOnOutside = e => {
+    const pop = document.getElementById('wx-popover');
+    if (pop && !pop.contains(e.target)) {
+      closeWxPopover();
+      document.removeEventListener('mousedown', _closeOnOutside, true);
+      document.removeEventListener('touchend', _closeOnOutside, true);
+    }
+  };
+  setTimeout(() => {
+    document.addEventListener('mousedown', _closeOnOutside, true);
+    document.addEventListener('touchend', _closeOnOutside, true);
+  }, 0);
+  document.body.appendChild(overlay);
+
+  // Popover
+  const pop = document.createElement('div');
+  pop.id = 'wx-popover';
+  pop.dataset.icao = icao;
+  const popW = Math.min(320, window.innerWidth - 16);
+  const rect = triggerEl.getBoundingClientRect();
+  const spaceBelow = window.innerHeight - rect.bottom - 8;
+  const spaceAbove = rect.top - 8;
+  const useAbove = spaceBelow < 220 || spaceAbove > spaceBelow;
+  const availH = useAbove ? spaceAbove : spaceBelow;
+  const maxH = Math.min(Math.floor(window.innerHeight * 0.6), availH);
+  const topPos = useAbove ? Math.max(8, rect.top - maxH - 4) : rect.bottom + 4;
+  const leftPos = Math.min(rect.left, window.innerWidth - popW - 8);
+  pop.style.cssText = `position:fixed;left:${leftPos}px;top:${topPos}px;width:${popW}px;max-height:${maxH}px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:#0d1b34;border:1px solid rgba(255,255,255,0.15);border-radius:12px;z-index:1000;box-shadow:0 8px 32px rgba(0,0,0,0.6);padding:12px`;
+  document.body.appendChild(pop);
+
+  renderWxPopoverContent(icao);
+  fetchWx(icao);
+}
 
 // ── Clock ──────────────────────────────────────────────────
 function checkCacheStale() {
@@ -1152,8 +1251,12 @@ function renderWindRow(wp, w, loading, legTrack) {
   const dir = w?.dir ?? null;
   const rot = dir != null ? dir - legTrack + 180 : 0;
   const windStr = loading ? '…' : (dir != null ? `${fmtDir(dir)} / ${fmtSpd(spd)} kt` : '—');
+  const isMidpoint = wp.icao.includes('nm');
+  const icaoEl = isMidpoint
+    ? `<div class="lr-icao">${wp.icao}</div>`
+    : `<div class="lr-icao" onclick="showWxPopover('${wp.icao}', this)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">${wp.icao}</div>`;
   return `<div class="leg-row">
-    <div class="lr-icao">${wp.icao}</div>
+    ${icaoEl}
     <div class="lr-name">${wp.name ?? ''}</div>
     <div class="lr-wind">
       <span class="${twClass(dir, spd, legTrack)}">${windStr}</span>
