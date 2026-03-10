@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <!-- v2 - CYXL CYAC CYVZ CPV7 added -->
 <html lang="en">
@@ -1227,8 +1226,8 @@ function renderRecRow(r, label, color, legTrack, legIdx, isActiveMode, rowKey = 
   const isSelected = sel === rowKey
     || (sel == null && isActiveMode);
   const isOpen = legExpanded[legIdx] === rowKey;
-  const bg = isOpen ? 'rgba(0,212,184,0.05)' : isSelected ? 'rgba(0,212,184,0.08)' : 'rgba(0,0,0,0.1)';
-  return `<div onclick="toggleRecRow(${legIdx??'null'}, '${rowKey}', ${r.alt})" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:${isOpen?'none':'1px solid var(--border)'};background:${bg};cursor:pointer;transition:background 0.15s">
+  const bg = isOpen ? 'rgba(0,212,184,0.08)' : isSelected ? 'rgba(0,212,184,0.15)' : 'rgba(0,0,0,0.1)';
+  return `<div onclick="toggleRecRow(${legIdx??'null'}, '${rowKey}', ${r.alt})" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:${isOpen?'none':'1px solid var(--border)'};border-left:3px solid ${isSelected?'var(--teal)':'transparent'};background:${bg};cursor:pointer;transition:background 0.15s">
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:${color};text-transform:uppercase;letter-spacing:0.1em;flex-shrink:0">${label}</span>
     <span style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${color};letter-spacing:0.05em;flex-shrink:0">${r.alt/100}</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);flex-shrink:0;white-space:nowrap">GS ${r.gs} · ${r.totalFuel}lb · ${r.totalTimeMin}m</span>
