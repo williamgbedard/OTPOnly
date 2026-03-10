@@ -521,25 +521,121 @@ function closeWxPopover() {
   if (ov)  ov.remove();
 }
 
+// ── METAR parser ───────────────────────────────────────────
+function parseMetar(raw) {
+  if (!raw) return null;
+  const t = raw.split(/\s+/);
+  const get = pat => { for (const s of t) { const m = s.match(pat); if (m) return m; } return null; };
+
+  // Time
+  const timeM = get(/^(\d{2})(\d{2})(\d{2})Z$/);
+  const time = timeM ? `${timeM[1]}/${timeM[2]}:${timeM[3]}Z` : null;
+
+  // Wind
+  const windM = get(/^(\d{3}|VRB)(\d{2,3})(G(\d{2,3}))?KT$/);
+  let wind = null;
+  if (windM) {
+    wind = windM[1] === 'VRB' ? `Variable at ${windM[2]}kt` : `${windM[1]}° at ${parseInt(windM[2])}kt`;
+    if (windM[4]) wind += ` gusting ${parseInt(windM[4])}kt`;
+  }
+
+  // Visibility
+  const visM = get(/^(\d+)(SM)?$/);
+  const visFrac = get(/^(\d+)\/(\d+)SM$/);
+  let vis = null;
+  if (visM && visM[2]) vis = `${visM[1]} SM`;
+  else if (visFrac) vis = `${visFrac[1]}/${visFrac[2]} SM`;
+
+  // Clouds
+  const cloudTokens = t.filter(s => /^(FEW|SCT|BKN|OVC|SKC|CLR|NSC|CAVOK)\d*/.test(s));
+  const cloudMap = { FEW: 'Few', SCT: 'Scattered', BKN: 'Broken', OVC: 'Overcast', SKC: 'Clear', CLR: 'Clear', NSC: 'No significant clouds', CAVOK: 'CAVOK' };
+  const clouds = cloudTokens.map(c => {
+    const m = c.match(/^(FEW|SCT|BKN|OVC)(\d{3})/);
+    if (m) return `${cloudMap[m[1]]} at ${parseInt(m[2]) * 100}ft`;
+    return cloudMap[c] || c;
+  }).join(', ') || null;
+
+  // Temp / dewpoint
+  const tempM = get(/^(M?\d{2})\/(M?\d{2})$/);
+  const parseTemp = s => s ? (s.startsWith('M') ? -parseInt(s.slice(1)) : parseInt(s)) : null;
+  const tempC = tempM ? parseTemp(tempM[1]) : null;
+  const dewC  = tempM ? parseTemp(tempM[2]) : null;
+
+  // Pressure
+  const altM  = get(/^A(\d{4})$/);
+  const qnhM  = get(/^Q(\d{4})$/);
+  let pressure = null;
+  if (altM) pressure = `${(parseInt(altM[1]) / 100).toFixed(2)} inHg`;
+  else if (qnhM) pressure = `${qnhM[1]} hPa`;
+
+  // Flight rules
+  const fltCat = get(/^(VFR|MVFR|IFR|LIFR)$/);
+
+  return { time, wind, vis, clouds, tempC, dewC, pressure, fltCat: fltCat?.[1] || null };
+}
+
+function renderMetarDecoded(metar) {
+  const d = parseMetar(metar);
+  if (!d) return '';
+  const fltColors = { VFR: 'var(--teal)', MVFR: 'var(--moderate)', IFR: 'var(--strong)', LIFR: 'var(--severe)' };
+  const fltBadge = d.fltCat
+    ? `<span style="font-family:'DM Mono',monospace;font-size:0.6rem;font-weight:700;color:#000;background:${fltColors[d.fltCat]||'var(--muted)'};padding:1px 6px;border-radius:4px">${d.fltCat}</span>`
+    : '';
+  const row = (label, val) => val != null
+    ? `<div style="margin-bottom:6px">
+        <div style="font-family:'DM Mono',monospace;font-size:0.52rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:1px">${label}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--white)">${val}</div>
+       </div>` : '';
+  const tempStr = d.tempC != null ? `${d.tempC}°C` : null;
+  const dewStr  = d.dewC  != null ? `${d.dewC}°C`  : null;
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-family:'DM Mono',monospace;font-size:0.52rem;color:var(--muted);letter-spacing:.1em">DECODED</div>
+      ${fltBadge}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px">
+      ${row('Wind', d.wind)}
+      ${row('Visibility', d.vis)}
+      ${row('Clouds', d.clouds)}
+      ${row('Temperature', tempStr)}
+      ${row('Dew Point', dewStr)}
+      ${row('Pressure', d.pressure)}
+    </div>`;
+}
+
 function renderWxPopoverContent(icao) {
   const pop = document.getElementById('wx-popover');
   if (!pop) return;
   const wx = wxCache[icao];
+  const decoded = pop.dataset.decoded === '1';
+
   let inner = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-    <span style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--teal);letter-spacing:.08em">${icao}</span>
-    <button onclick="closeWxPopover()" style="background:none;border:none;color:var(--muted);font-size:1rem;cursor:pointer;padding:0 4px">✕</button>
+    <span style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--teal);letter-spacing:.08em">${wx?.nearest || icao}</span>
+    <div style="display:flex;align-items:center;gap:6px">
+      ${wx?.metar ? `<button onclick="document.getElementById('wx-popover').dataset.decoded=document.getElementById('wx-popover').dataset.decoded==='1'?'0':'1';renderWxPopoverContent('${icao}')"
+        style="background:none;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:0.58rem;padding:2px 7px;border-radius:4px;cursor:pointer;letter-spacing:.06em">
+        ${decoded ? 'RAW' : 'DECODE'}</button>` : ''}
+      <button onclick="closeWxPopover()" style="background:none;border:none;color:var(--muted);font-size:1rem;cursor:pointer;padding:0 4px">✕</button>
+    </div>
   </div>`;
+
   if (!wx || wx.loading) {
     inner += `<div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted)">Loading…</div>`;
   } else if (wx.error || (!wx.metar && !wx.taf)) {
-    inner += `<div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted)">${wx.errorMsg || 'No reporting station found within 200nm'}</div>`;
+    inner += `<div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted)">${wx.errorMsg || 'No reporting station found within 100nm'}</div>`;
   } else {
-    if (wx.nearest) inner += `<div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);margin-bottom:8px">No wx for ${icao} — showing ${wx.nearest} · ${wx.nearestDist}nm away</div>`;
-    if (wx.metar) inner += `
-      <div style="margin-bottom:8px">
-        <div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--teal);letter-spacing:.08em;margin-bottom:3px">METAR</div>
-        <div style="font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--white);line-height:1.6;word-break:break-all">${wx.metar}</div>
-      </div>`;
+    if (wx.nearest) inner += `<div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);margin-bottom:8px">No wx for ${icao} — nearest: ${wx.nearest} · ${wx.nearestDist}nm</div>`;
+    if (wx.metar) {
+      if (decoded) {
+        inner += `<div style="margin-bottom:8px">${renderMetarDecoded(wx.metar)}</div>`;
+      } else {
+        inner += `
+          <div style="margin-bottom:8px">
+            <div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--teal);letter-spacing:.08em;margin-bottom:3px">METAR</div>
+            <div style="font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--white);line-height:1.6;word-break:break-all">${wx.metar}</div>
+          </div>`;
+      }
+    }
     if (wx.taf) inner += `
       <div>
         <div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--gold);letter-spacing:.08em;margin-bottom:3px">TAF</div>
