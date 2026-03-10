@@ -481,10 +481,16 @@ function airportLatLon(icao) {
 async function fetchWx(icao) {
   if (wxCache[icao] && !wxCache[icao].loading) return;
   wxCache[icao] = { loading: true };
+  const pop = document.getElementById('wx-popover');
+  if (pop && pop.dataset.icao === icao) renderWxPopoverContent(icao);
   try {
     const pos = airportLatLon(icao);
     const latParam = pos ? `&lat=${pos.lat}&lon=${pos.lon}` : '';
-    const res = await fetch(`https://otponlywx.williamgbedard.workers.dev/wx?icao=${icao}${latParam}`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(`https://otponlywx.williamgbedard.workers.dev/wx?icao=${icao}${latParam}`, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     wxCache[icao] = {
       metar:       data.metar       || null,
@@ -493,12 +499,14 @@ async function fetchWx(icao) {
       nearest:     data.nearest     || null,
       nearestDist: data.nearestDist || null,
       loading: false,
+      errorMsg: data.error || null,
     };
   } catch(e) {
-    wxCache[icao] = { metar: null, taf: null, loading: false, error: true };
+    wxCache[icao] = { metar: null, taf: null, loading: false, error: true,
+      errorMsg: e.name === 'AbortError' ? 'Request timed out' : 'Worker unreachable — check deployment' };
   }
-  const pop = document.getElementById('wx-popover');
-  if (pop && pop.dataset.icao === icao) renderWxPopoverContent(icao);
+  const pop2 = document.getElementById('wx-popover');
+  if (pop2 && pop2.dataset.icao === icao) renderWxPopoverContent(icao);
 }
 
 function closeWxPopover() {
@@ -519,7 +527,7 @@ function renderWxPopoverContent(icao) {
   if (!wx || wx.loading) {
     inner += `<div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted)">Loading…</div>`;
   } else if (wx.error || (!wx.metar && !wx.taf)) {
-    inner += `<div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted)">No reporting station found within 200nm</div>`;
+    inner += `<div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted)">${wx.errorMsg || 'No reporting station found within 200nm'}</div>`;
   } else {
     if (wx.nearest) inner += `<div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);margin-bottom:8px">No wx for ${icao} — showing ${wx.nearest} · ${wx.nearestDist}nm away</div>`;
     if (wx.metar) inner += `
@@ -1323,7 +1331,7 @@ function renderLegs() {
 
     html += `<div class="leg-card">
       <div class="leg-header">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;justify-content:space-between;width:100%">
           <div class="leg-title" style="display:flex;align-items:center;flex-wrap:nowrap;min-width:0">
             ${dep.error
               ? `<span style="color:var(--severe)">${dep.icao}</span>`
