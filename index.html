@@ -1205,14 +1205,14 @@ function toggleLegPax(li) {
 
 // ── Toggle leg expanded state ──────────────────────────────
 function toggleRecRow(li, key, altFt) {
-  const alreadyConfirmed = legAltConfirmed[li] === key;
-  if (alreadyConfirmed) {
-    // Second tap on same row: toggle detail view
+  const currentlySelected = legAltConfirmed[li] === key;
+  if (currentlySelected) {
+    // Tap on already-selected row: toggle detail
     legExpanded[li] = (legExpanded[li] === key) ? null : key;
   } else {
-    // First tap: select alt, mark confirmed, close detail
-    legExpanded[li] = null;
+    // Tap on unselected row: select it, close detail
     legAltConfirmed[li] = key;
+    legExpanded[li] = null;
     if (altFt != null) {
       legAltFt[li] = altFt;
       legAltManual[li] = false;
@@ -1289,7 +1289,7 @@ function renderRecRow(r, label, color, legTrack, legIdx, isActiveMode, rowKey = 
     : Math.abs(r.tailwind) < 50 ? 'var(--strong)' : 'var(--severe)';
   const arrowRot = r.windDir != null ? r.windDir - legTrack + 180 : 0;
   const windStr  = r.windDir != null ? `${String(r.windDir).padStart(3,'0')}°/${r.windSpd}` : '';
-  const isSelected = legAltFt[legIdx] === r.alt && !legAltManual[legIdx];
+  const isSelected = legAltConfirmed[legIdx] === rowKey && !legAltManual[legIdx];
   const isOpen = legExpanded[legIdx] === rowKey;
   const bg = isOpen ? 'rgba(0,212,184,0.05)' : isSelected ? 'rgba(0,212,184,0.08)' : 'rgba(0,0,0,0.1)';
   return `<div onclick="toggleRecRow(${legIdx??'null'}, '${rowKey}', ${r.alt})" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:${isOpen?'none':'1px solid var(--border)'};background:${bg};cursor:pointer;transition:background 0.15s">
@@ -1411,8 +1411,8 @@ function renderLegs() {
           </div>
           <button onclick="toggleLegPax(${li})" style="background:none;border:1px solid ${legPax[li]?'var(--gold)':'var(--border)'};color:${legPax[li]?'var(--gold)':'var(--muted)'};font-size:0.6rem;padding:3px 7px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap;letter-spacing:.08em;flex-shrink:0">${legPax[li]?'👤 PAX':'👤 NO PAX'}</button>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;width:100%;margin-top:6px;justify-content:space-between">
-          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+        <div style="display:flex;flex-direction:column;gap:4px;width:100%;margin-top:6px">
+          <div style="display:flex;align-items:center;gap:4px">
             <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:'DM Mono',monospace">Depart(Z)</span>
             <input id="dep-time-${li}" class="alt-ft-input" type="text" inputmode="numeric"
               placeholder="HH:MM" value="${depTime||''}" maxlength="5"
@@ -1420,7 +1420,7 @@ function renderLegs() {
               oninput="onLegTimeText(${li},this)" />
             ${localTimeLabel ? `<span style="font-size:0.75rem;color:var(--muted);white-space:nowrap">${localTimeLabel}</span>` : ''}
           </div>
-          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:6px">
             <div class="leg-alt-input-wrap">
               <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:'DM Mono',monospace">Altitude</span>
               <input id="alt-inp-${li}" class="alt-ft-input" type="number" value="${Math.round(ft/100)}" min="0" max="450" step="1"
@@ -1587,6 +1587,7 @@ function saveSession() {
       routeRaw:    document.getElementById('route-input').value,
       legAltFt,
       legAltManual,
+      legAltConfirmed,
       legDepTime,
       legPax,
       optMode,
@@ -1636,8 +1637,9 @@ function loadSession() {
     }
 
     // Restore per-leg arrays before calling handleGo so they survive the resize
-    if (Array.isArray(data.legAltFt))     legAltFt     = data.legAltFt;
-    if (Array.isArray(data.legAltManual)) legAltManual = data.legAltManual;
+    if (Array.isArray(data.legAltFt))       legAltFt       = data.legAltFt;
+    if (Array.isArray(data.legAltManual))   legAltManual   = data.legAltManual;
+    if (Array.isArray(data.legAltConfirmed)) legAltConfirmed = data.legAltConfirmed;
     if (Array.isArray(data.legDepTime))   legDepTime   = data.legDepTime;
     if (Array.isArray(data.legPax))       legPax       = data.legPax;
 
