@@ -1405,7 +1405,7 @@ function renderLegs() {
           </div>
           <button onclick="toggleLegPax(${li})" style="background:none;border:1px solid ${legPax[li]?'var(--gold)':'var(--border)'};color:${legPax[li]?'var(--gold)':'var(--muted)'};font-size:0.6rem;padding:3px 7px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap;letter-spacing:.08em;flex-shrink:0">${legPax[li]?'👤 PAX':'👤 NO PAX'}</button>
         </div>
-        <div style="display:flex;flex-direction:column;gap:4px;width:100%;margin-top:6px">
+        <div style="display:flex;flex-direction:column;gap:4px;width:100%;margin-top:6px;align-items:flex-end">
           <div style="display:flex;align-items:center;gap:4px">
             <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:'DM Mono',monospace">Depart(Z)</span>
             <input id="dep-time-${li}" class="alt-ft-input" type="text" inputmode="numeric"
