@@ -1202,6 +1202,12 @@ function toggleLegPax(li) {
 }
 
 // ── Toggle leg expanded state ──────────────────────────────
+function toggleRecRow(li, key) {
+  legExpanded[li] = (legExpanded[li] === key) ? null : key;
+  renderLegs();
+  saveSession();
+}
+
 function toggleLeg(li) {
   legExpanded[li] = !legExpanded[li];
   renderLegs();
@@ -1256,7 +1262,7 @@ function onLegTimeText(legIdx, inp) {
 }
 
 // ── Render a single altitude recommendation row ───────────
-function renderRecRow(r, label, color, legTrack, legIdx, isActiveMode) {
+function renderRecRow(r, label, color, legTrack, legIdx, isActiveMode, rowKey = '') {
   if (!r) return '';
   const isHw    = r.tailwind < 0;
   const twLabel = isHw ? 'HW' : 'TW';
@@ -1267,11 +1273,10 @@ function renderRecRow(r, label, color, legTrack, legIdx, isActiveMode) {
     : Math.abs(r.tailwind) < 50 ? 'var(--strong)' : 'var(--severe)';
   const arrowRot = r.windDir != null ? r.windDir - legTrack + 180 : 0;
   const windStr  = r.windDir != null ? `${String(r.windDir).padStart(3,'0')}°/${r.windSpd}` : '';
-  // Selected if: manually chosen, OR this row matches the active opt mode and no manual override
-  const isSelected = legAltManual[legIdx]
-    ? legAltFt[legIdx] === r.alt
-    : isActiveMode;
-  return `<div onclick="selectRecAlt(${legIdx??'null'}, ${r.alt})" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:1px solid var(--border);background:${isSelected?'rgba(0,212,184,0.08)':'rgba(0,0,0,0.1)'};cursor:pointer;transition:background 0.15s" onmouseenter="this.style.background='rgba(255,255,255,0.04)'" onmouseleave="this.style.background='${isSelected?'rgba(0,212,184,0.08)':'rgba(0,0,0,0.1)'}'">
+  const isSelected = legAltManual[legIdx] ? legAltFt[legIdx] === r.alt : isActiveMode;
+  const isOpen = legExpanded[legIdx] === rowKey;
+  const bg = isOpen ? 'rgba(0,212,184,0.05)' : isSelected ? 'rgba(0,212,184,0.08)' : 'rgba(0,0,0,0.1)';
+  return `<div onclick="toggleRecRow(${legIdx??'null'}, '${rowKey}')" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:${isOpen?'none':'1px solid var(--border)'};background:${bg};cursor:pointer;transition:background 0.15s">
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:${color};text-transform:uppercase;letter-spacing:0.1em;flex-shrink:0">${label}</span>
     <span style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${color};letter-spacing:0.05em;flex-shrink:0">${r.alt/100}</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);flex-shrink:0;white-space:nowrap">GS ${r.gs} · ${r.totalFuel}lb · ${r.totalTimeMin}m</span>
@@ -1434,8 +1439,7 @@ function renderLegs() {
       ? `${fmtDir(avg.dir)} / ${fmtSpd(avg.spd)} kt`
       : (depLoading||arrLoading ? '…' : '—');
     const isExpanded = !!legExpanded[li];
-    html += `<div class="leg-avg" onclick="toggleLeg(${li})">
-      <div class="leg-avg-label"><span class="expand-hint">${isExpanded ? '▲ collapse' : '▼ details'}</span></div>
+    html += `<div class="leg-avg">
       <div class="avg-wind-line">
         <span class="${twClass(avg?.dir, avg?.spd, legTrack)}">${avgWindStr}</span>
         <span style="font-size:1.4rem;transform:rotate(${arrowRot}deg);display:inline-block;opacity:${avg?0.9:0.2};transition:transform 0.4s;line-height:1">↑</span>
@@ -1445,14 +1449,48 @@ function renderLegs() {
 
     // renderWindRow is defined above renderLegs
 
+    // Helper: render the wind detail rows for a given altitude
+    const renderWindDetail = (altFt) => {
+      const wDepA = getWindAtFt(dep.icao, altFt, hIdx);
+      const wArrA = getWindAtFt(arr.icao, altFt, arrHIdx);
+      const depLoadingA = !cache[dep.icao];
+      const arrLoadingA = !cache[arr.icao];
+      let detailHtml = `<div class="leg-rows">`;
+      detailHtml += renderWindRow(dep, wDepA, depLoadingA, legTrack, false);
+      if (legDist > 150) {
+        const midKeys = legMidKeys[li] || [];
+        const nIntervals = midKeys.length + 1;
+        detailHtml += `<div style="margin-left:20px;border-left:1px solid rgba(107,127,168,0.35);padding-left:0;margin-top:-1px">`;
+        midKeys.forEach((key, mi) => {
+          const midFlightHr = legDist > 0 ? (legDist * (1 - (mi + 1) / (midKeys.length + 1))) / estGs : 0;
+          const midHIdx = offsetHIdx(hIdx, estFlightHr - midFlightHr);
+          const wMid = cache[key] ? getWindAtFt(key, altFt, midHIdx) : null;
+          const midLoading = !cache[key];
+          const [mlat, mlon] = key.replace('mid:','').split(',').map(Number);
+          const distToArr = Math.round(legDist * (1 - (mi + 1) / nIntervals));
+          const midWp = { icao: `${distToArr}nm`, name: `${Math.round(mlat*10)/10}°N ${Math.round(Math.abs(mlon)*10)/10}°${mlon<0?'W':'E'}` };
+          detailHtml += renderWindRow(midWp, wMid, midLoading, legTrack, true);
+        });
+        detailHtml += `</div>`;
+        detailHtml += `<div style="border-top:1px solid var(--border)">` + renderWindRow(arr, wArrA, arrLoadingA, legTrack, false) + `</div>`;
+      } else {
+        detailHtml += renderWindRow(arr, wArrA, arrLoadingA, legTrack, false);
+      }
+      detailHtml += `</div>`;
+      return detailHtml;
+    };
+
     // Altitude recommendation banner
     if (rec) {
       const sameFuelTime = rec.bestFuel?.alt === rec.bestTime?.alt;
       if (sameFuelTime) {
-        html += renderRecRow(rec.bestFuel, '⚡ Best', 'var(--teal)', legTrack, li, true);
+        html += renderRecRow(rec.bestFuel, '⚡ Best', 'var(--teal)', legTrack, li, true, 'best');
+        if (legExpanded[li] === 'best' || legExpanded[li] === true) html += renderWindDetail(rec.bestFuel.alt);
       } else {
-        html += renderRecRow(rec.bestFuel, '⛽ Fuel', 'var(--teal)', legTrack, li, optMode === 'fuel');
-        html += renderRecRow(rec.bestTime, '⚡ Fast', 'var(--gold)', legTrack, li, optMode === 'speed');
+        html += renderRecRow(rec.bestFuel, '⛽ Fuel', 'var(--teal)', legTrack, li, optMode === 'fuel', 'fuel');
+        if (legExpanded[li] === 'fuel') html += renderWindDetail(rec.bestFuel.alt);
+        html += renderRecRow(rec.bestTime, '⚡ Fast', 'var(--gold)', legTrack, li, optMode === 'speed', 'time');
+        if (legExpanded[li] === 'time') html += renderWindDetail(rec.bestTime.alt);
       }
 
       // If manual alt is set, always show a row for it
@@ -1470,42 +1508,10 @@ function renderLegs() {
             totalTimeMin, tailwind: Math.round(tw),
             windDir: Math.round(manW.dir), windSpd: Math.round(manW.spd ?? 0)
           };
-          html += renderRecRow(manRec, '✎ SEL', 'var(--white)', legTrack, li, true);
+          html += renderRecRow(manRec, '✎ SEL', 'var(--white)', legTrack, li, true, 'manual');
+          if (legExpanded[li] === 'manual') html += renderWindDetail(manualFt);
         }
       }
-    }
-
-    if (isExpanded) {
-      html += `<div class="leg-rows">`;
-
-      html += renderWindRow(dep, wDep, depLoading, legTrack, false);
-
-      if (legDist > 150) {
-        const midKeys = legMidKeys[li] || [];
-        const nIntervals = midKeys.length + 1;
-        // Wrap midpoints in a container with a continuous left border line
-        html += `<div style="margin-left:20px;border-left:1px solid rgba(107,127,168,0.35);padding-left:0;margin-top:-1px">`;
-        midKeys.forEach((key, mi) => {
-          const t = (mi + 1) / nIntervals;
-          const distToArr = Math.round(legDist * (1 - t));
-          const midFlightHr = legDist > 0 ? (legDist * (1 - (mi + 1) / (midKeys.length + 1))) / estGs : 0;
-          const midHIdx = offsetHIdx(hIdx, estFlightHr - midFlightHr);
-          const wMid = cache[key] ? getWindAtFt(key, ft, midHIdx) : null;
-          const midLoading = !cache[key];
-          const [mlat, mlon] = key.replace('mid:','').split(',').map(Number);
-          const midWp = { icao: `${distToArr}nm`, name: `${Math.round(mlat*10)/10}°N ${Math.round(Math.abs(mlon)*10)/10}°${mlon<0?'W':'E'}` };
-          html += renderWindRow(midWp, wMid, midLoading, legTrack, true);
-        });
-        html += `</div>`;
-      }
-
-      if (legDist > 150) {
-        html += `<div style="border-top:1px solid var(--border)">` + renderWindRow(arr, wArr, arrLoading, legTrack, false) + `</div>`;
-      } else {
-        html += renderWindRow(arr, wArr, arrLoading, legTrack, false);
-      }
-
-      html += `</div>`;
     }
     html += `</div>`;
   }
