@@ -319,7 +319,7 @@
   .leg-row:last-child { border-bottom: none; }
   .lr-icao { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; color: var(--gold); letter-spacing: 0.08em; flex-shrink: 0; width: 52px; }
   .lr-name { font-size: 0.62rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; padding-right: 6px; }
-  .lr-wind { font-family: 'DM Mono', monospace; font-size: 0.78rem; white-space: nowrap; flex-shrink: 0; display: flex; align-items: center; gap: 5px; }
+  .lr-wind { font-family: 'DM Mono', monospace; font-size: 0.65rem; white-space: nowrap; flex-shrink: 0; display: flex; align-items: center; gap: 5px; }
 
   /* Leg endpoint rows container */
   .leg-rows { overflow: hidden; }
@@ -349,7 +349,7 @@
     .leg-header { padding: 10px 14px 8px; }
     .leg-avg { padding: 8px 14px; }
     .leg-row { padding: 7px 14px; }
-    .lr-wind { font-size: 0.82rem; }
+    .lr-wind { font-size: 0.68rem; }
     .alt-ft-input { width: 46px; font-size: 0.9rem; }
   }
 
@@ -850,9 +850,9 @@ function showAltPopover(legIdx) {
       <span style="font-size:0.75rem;width:14px;flex-shrink:0;text-align:center">${r.badge}</span>
       <span style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);flex-shrink:0;white-space:nowrap">GS ${r.gs} · ${r.totalFuel}lb · ${r.totalTimeMin}m</span>
       <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;margin-left:auto">
-        <span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:${r.twCol};white-space:nowrap">${r.windStr}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:0.65rem;color:${r.twCol};white-space:nowrap">${r.windStr}</span>
         <span style="font-size:0.85rem;display:inline-block;transform:rotate(${r.arrowRot}deg);color:${r.twCol};line-height:1">↑</span>
-        <span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:${r.twCol};margin-left:2px">${r.twLabel} ${r.twAmt}kt</span>
+        <span style="font-family:'DM Mono',monospace;font-size:0.65rem;color:${r.twCol};margin-left:2px">${r.twLabel} ${r.twAmt}kt</span>
       </div>
     </div>`).join('');
 
@@ -1271,9 +1271,9 @@ function renderRecRow(r, label, color, legTrack, legIdx, isActiveMode) {
     <span style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${color};letter-spacing:0.05em;flex-shrink:0">${r.alt/100}</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);flex-shrink:0;white-space:nowrap">GS ${r.gs} · ${r.totalFuel}lb · ${r.totalTimeMin}m</span>
     <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:auto">
-      <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:${twColor}">${windStr}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:0.65rem;color:${twColor}">${windStr}</span>
       <span style="font-size:0.9rem;transform:rotate(${arrowRot}deg);display:inline-block;opacity:0.85;transition:transform 0.3s;line-height:1;color:${twColor}">↑</span>
-      <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:${twColor};margin-left:2px">${twStr}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:0.65rem;color:${twColor};margin-left:2px">${twStr}</span>
     </div>
   </div>`;
 }
@@ -1285,12 +1285,9 @@ function renderWindRow(wp, w, loading, legTrack) {
   const rot = dir != null ? dir - legTrack + 180 : 0;
   const windStr = loading ? '…' : (dir != null ? `${fmtDir(dir)} / ${fmtSpd(spd)} kt` : '—');
   const isMidpoint = wp.icao.includes('nm');
-  const wxEntry = wxCache[wp.icao];
-  const catColor = wxEntry && !wxEntry.loading ? fltCatColor(wxEntry.fltCat) : null;
-  const catDot = catColor ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${catColor};margin-left:4px;flex-shrink:0;vertical-align:middle"></span>` : '';
   const icaoEl = isMidpoint
     ? `<div class="lr-icao">${wp.icao}</div>`
-    : `<div class="lr-icao" onclick="showWxPopover('${wp.icao}', this)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;display:flex;align-items:center">${wp.icao}${catDot}</div>`;
+    : `<div class="lr-icao" onclick="showWxPopover('${wp.icao}', this)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">${wp.icao}</div>`;
   return `<div class="leg-row">
     ${icaoEl}
     <div class="lr-name">${wp.name ?? ''}</div>
@@ -1360,7 +1357,12 @@ function renderLegs() {
     html += `<div class="leg-card">
       <div class="leg-header">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;justify-content:space-between">
-          <div class="leg-title" style="flex:1;min-width:0">${dep.error?`<span style="color:var(--severe)">${dep.icao}</span>`:dep.icao}<span class="leg-arrow">›</span>${arr.error?`<span style="color:var(--severe)">${arr.icao}</span>`:arr.icao}${(!dep.error && !arr.error) ? `<span style="font-size:0.75rem;color:var(--muted);font-family:'DM Mono',monospace;margin-left:8px;font-weight:400">${Math.round(legDist)} nm · ${Math.round(legTrack).toString().padStart(3,'0')}°T</span>` : ''}</div>
+          <div class="leg-title" style="flex:1;min-width:0;display:flex;align-items:center;flex-wrap:nowrap">
+            ${dep.error?`<span style="color:var(--severe)">${dep.icao}</span>`:dep.icao}${(()=>{const c=fltCatColor(wxCache[dep.icao]?.fltCat);return c&&!dep.error?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${c};margin-left:4px;flex-shrink:0"></span>`:''})()}
+            <span class="leg-arrow">›</span>
+            ${arr.error?`<span style="color:var(--severe)">${arr.icao}</span>`:arr.icao}${(()=>{const c=fltCatColor(wxCache[arr.icao]?.fltCat);return c&&!arr.error?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${c};margin-left:4px;flex-shrink:0"></span>`:''})()}
+            ${(!dep.error && !arr.error) ? `<span style="font-size:0.75rem;color:var(--muted);font-family:'DM Mono',monospace;margin-left:8px;font-weight:400">${Math.round(legDist)} nm · ${Math.round(legTrack).toString().padStart(3,'0')}°T</span>` : ''}
+          </div>
           <button onclick="toggleLegPax(${li})" style="background:none;border:1px solid ${legPax[li]?'var(--gold)':'var(--border)'};color:${legPax[li]?'var(--gold)':'var(--muted)'};font-size:0.6rem;padding:3px 7px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap;letter-spacing:.08em;flex-shrink:0">${legPax[li]?'👤 PAX':'👤 NO PAX'}</button>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;width:100%;margin-top:6px;justify-content:space-between">
