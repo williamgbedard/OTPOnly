@@ -307,7 +307,7 @@
   }
   .avg-wind-line {
     display: flex; align-items: center; gap: 6px;
-    font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; letter-spacing: 0.05em;
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.04rem; letter-spacing: 0.05em;
   }
   .avg-wind-sep { color: var(--muted); font-size: 1rem; }
 
@@ -343,7 +343,7 @@
     .route-card { margin-left: 0; margin-right: 0; }
     .logo { font-size: 1.7rem; }
     .leg-title { font-size: 1.1rem; }
-    .avg-wind-line { font-size: 1.45rem; }
+    .avg-wind-line { font-size: 1.16rem; }
   }
   @media (min-width: 768px) {
     header { padding: 14px 24px 12px; }
@@ -1434,7 +1434,7 @@ function renderLegs() {
       : (depLoading||arrLoading ? '…' : '—');
     const isExpanded = !!legExpanded[li];
     html += `<div class="leg-avg" onclick="toggleLeg(${li})">
-      <div class="leg-avg-label"><span>${isExpanded ? `◈ Avg · ${label} · ` : ''}</span><span class="expand-hint">${isExpanded ? '▲ collapse' : '▼ details'}</span></div>
+      <div class="leg-avg-label"><span class="expand-hint">${isExpanded ? '▲ collapse' : '▼ details'}</span></div>
       <div class="avg-wind-line">
         <span class="${twClass(avg?.dir, avg?.spd, legTrack)}">${avgWindStr}</span>
         <span style="font-size:1.4rem;transform:rotate(${arrowRot}deg);display:inline-block;opacity:${avg?0.9:0.2};transition:transform 0.4s;line-height:1">↑</span>
