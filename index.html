@@ -472,8 +472,7 @@ function fltCatColor(cat) {
 }
 
 function airportLatLon(icao) {
-  if (typeof airports === 'undefined') return null;
-  const a = airports.find(x => x.icao === icao);
+  const a = AP_MAP[icao];
   return a ? { lat: a.lat, lon: a.lon } : null;
 }
 
