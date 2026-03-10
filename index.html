@@ -1210,7 +1210,7 @@ function toggleLeg(li) {
 // ── Select a recommended altitude for a leg ───────────────
 function selectRecAlt(legIdx, altFt) {
   legAltFt[legIdx]     = altFt;
-  legAltManual[legIdx] = true;
+  legAltManual[legIdx] = false;
   // Update the input box to match
   const inp = document.getElementById(`alt-inp-${legIdx}`);
   if (inp) inp.value = altFt / 100;
@@ -1344,6 +1344,7 @@ function renderLegs() {
     const legTrack = (!dep.error && !arr.error) ? trackDeg(dep.lat, dep.lon, arr.lat, arr.lon) : 0;
 
     let ft = legAltFt[li];
+    const manualFt = legAltManual[li] ? ft : null;
     if (!legAltManual[li] && !dep.error && !arr.error) {
       if (cache[dep.icao] && cache[arr.icao] && legDist > 5) {
         const _cap = legPax[li] ? 25000 : 28000;
@@ -1454,26 +1455,22 @@ function renderLegs() {
         html += renderRecRow(rec.bestTime, '⚡ Fast', 'var(--gold)', legTrack, li, optMode === 'speed');
       }
 
-      // If manual alt is set and differs from both recs, show a third row for it
-      if (legAltManual[li] && ft !== rec.bestFuel?.alt && ft !== rec.bestTime?.alt) {
-        const manW = avgWindLeg(dep, arr, legDist, ft, hIdx, li);
-        if (manW) {
-          const perf = pc12AtAlt(ft);
-          if (perf) {
-            const tw       = windComponent(manW.dir, manW.spd ?? 0, legTrack);
-            const gs       = calcGs(perf.tas, manW.dir, manW.spd ?? 0, legTrack);
-            const climbDist = perf.dist;
-            const cruiseDist = Math.max(0, legDist - climbDist);
-            const cruiseTimeHr = cruiseDist / gs;
-            const totalFuel = perf.fuel + cruiseTimeHr * perf.ff;
-            const totalTimeMin = Math.round(((perf.time / 3600) + cruiseTimeHr) * 60);
-            const manRec = {
-              alt: ft, gs: Math.round(gs), totalFuel: Math.round(totalFuel),
-              totalTimeMin, tailwind: Math.round(tw),
-              windDir: Math.round(manW.dir), windSpd: Math.round(manW.spd ?? 0)
-            };
-            html += renderRecRow(manRec, '✎ Manual', 'var(--muted)', legTrack, li, true);
-          }
+      // If manual alt is set, always show a row for it
+      if (manualFt != null) {
+        const manW = avgWindLeg(dep, arr, legDist, manualFt, hIdx, li);
+        const perf = pc12AtAlt(manualFt);
+        if (manW && perf) {
+          const tw          = windComponent(manW.dir, manW.spd ?? 0, legTrack);
+          const gs          = calcGs(perf.tas, manW.dir, manW.spd ?? 0, legTrack);
+          const cruiseDist  = Math.max(0, legDist - perf.dist);
+          const totalFuel   = perf.fuel + (cruiseDist / gs) * perf.ff;
+          const totalTimeMin = Math.round(((perf.time / 3600) + cruiseDist / gs) * 60);
+          const manRec = {
+            alt: manualFt, gs: Math.round(gs), totalFuel: Math.round(totalFuel),
+            totalTimeMin, tailwind: Math.round(tw),
+            windDir: Math.round(manW.dir), windSpd: Math.round(manW.spd ?? 0)
+          };
+          html += renderRecRow(manRec, '✎ SEL', 'var(--white)', legTrack, li, true);
         }
       }
     }
