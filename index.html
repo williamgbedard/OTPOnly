@@ -492,7 +492,7 @@ async function fetchWx(icao) {
     }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
-    const url = `https://otponlywx.williamgbedard.workers.dev/wx?lat=${pos.lat}&lon=${pos.lon}`;
+    const url = `https://otponlywx.williamgbedard.workers.dev/wx?icao=${icao}&lat=${pos.lat}&lon=${pos.lon}`;
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
