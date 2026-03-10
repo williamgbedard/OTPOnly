@@ -485,10 +485,15 @@ async function fetchWx(icao) {
   if (pop && pop.dataset.icao === icao) renderWxPopoverContent(icao);
   try {
     const pos = airportLatLon(icao);
-    const latParam = pos ? `&lat=${pos.lat}&lon=${pos.lon}` : '';
+    if (!pos) {
+      wxCache[icao] = { metar: null, taf: null, loading: false, error: true, errorMsg: 'No coordinates for airport' };
+      const pop2 = document.getElementById('wx-popover');
+      if (pop2 && pop2.dataset.icao === icao) renderWxPopoverContent(icao);
+      return;
+    }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
-    const url = `https://otponlywx.williamgbedard.workers.dev/wx?icao=${icao}${latParam}`;
+    const url = `https://otponlywx.williamgbedard.workers.dev/wx?lat=${pos.lat}&lon=${pos.lon}`;
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
