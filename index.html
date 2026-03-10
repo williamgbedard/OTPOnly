@@ -1202,8 +1202,21 @@ function toggleLegPax(li) {
 }
 
 // ── Toggle leg expanded state ──────────────────────────────
-function toggleRecRow(li, key) {
-  legExpanded[li] = (legExpanded[li] === key) ? null : key;
+function toggleRecRow(li, key, altFt) {
+  const alreadySelected = legAltFt[li] === altFt && !legAltManual[li];
+  if (alreadySelected) {
+    // Second tap on already-selected row: toggle detail view
+    legExpanded[li] = (legExpanded[li] === key) ? null : key;
+  } else {
+    // First tap: just select, close any open detail
+    legExpanded[li] = null;
+    if (altFt != null) {
+      legAltFt[li] = altFt;
+      legAltManual[li] = false;
+      const inp = document.getElementById(`alt-inp-${li}`);
+      if (inp) inp.value = altFt / 100;
+    }
+  }
   renderLegs();
   saveSession();
 }
@@ -1276,7 +1289,7 @@ function renderRecRow(r, label, color, legTrack, legIdx, isActiveMode, rowKey = 
   const isSelected = legAltManual[legIdx] ? legAltFt[legIdx] === r.alt : isActiveMode;
   const isOpen = legExpanded[legIdx] === rowKey;
   const bg = isOpen ? 'rgba(0,212,184,0.05)' : isSelected ? 'rgba(0,212,184,0.08)' : 'rgba(0,0,0,0.1)';
-  return `<div onclick="toggleRecRow(${legIdx??'null'}, '${rowKey}')" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:${isOpen?'none':'1px solid var(--border)'};background:${bg};cursor:pointer;transition:background 0.15s">
+  return `<div onclick="toggleRecRow(${legIdx??'null'}, '${rowKey}', ${r.alt})" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:${isOpen?'none':'1px solid var(--border)'};background:${bg};cursor:pointer;transition:background 0.15s">
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:${color};text-transform:uppercase;letter-spacing:0.1em;flex-shrink:0">${label}</span>
     <span style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${color};letter-spacing:0.05em;flex-shrink:0">${r.alt/100}</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);flex-shrink:0;white-space:nowrap">GS ${r.gs} · ${r.totalFuel}lb · ${r.totalTimeMin}m</span>
