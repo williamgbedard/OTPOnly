@@ -1437,7 +1437,7 @@ function renderLegs() {
             <div style="display:flex;align-items:center;gap:3px">
               <span style="font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:'DM Mono',monospace">Alt</span>
               <input id="alt-inp-${li}" class="alt-ft-input" type="number" value="${Math.round(ft/100)}" min="0" max="450" step="1"
-                readonly
+                readonly style="width:48px;padding:3px 4px;font-size:0.72rem;text-align:center"
                 onchange="onLegAltChange(${li})" onblur="onLegAltChange(${li})"
                 onclick="showAltPopover(${li})" />
 
