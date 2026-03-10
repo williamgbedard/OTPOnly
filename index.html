@@ -881,9 +881,29 @@ function showAltPopover(legIdx) {
 
 function selectAltFromPopover(legIdx, altFt) {
   closeAltPopover();
-  legAltFt[legIdx]       = altFt;
-  legAltManual[legIdx]   = true;
-  legAltConfirmed[legIdx] = null;
+  // Check if this alt matches a recommendation — if so, treat as rec selection not manual
+  const cap = legPax[legIdx] ? 25000 : 28000;
+  const dep = route[legIdx], arr = route[legIdx + 1];
+  const hIdx = timeToHourlyIdx(legDepTime[legIdx] ?? null, crewInfo.scheduleDate);
+  const legDist = dep && arr && !dep.error && !arr.error ? distNm(dep.lat, dep.lon, arr.lat, arr.lon) : 0;
+  const legTrack = dep && arr && !dep.error && !arr.error ? trackDeg(dep.lat, dep.lon, arr.lat, arr.lon) : 0;
+  const rec = (dep && arr && !dep.error && !arr.error && legDist > 5)
+    ? recommendAlts(legDist, legTrack, dep, arr, hIdx, cap, legIdx) : null;
+  const isFuelRec = rec?.bestFuel?.alt === altFt;
+  const isTimeRec = rec?.bestTime?.alt === altFt;
+  if (isFuelRec) {
+    legAltFt[legIdx] = altFt;
+    legAltManual[legIdx] = false;
+    legAltConfirmed[legIdx] = 'fuel';
+  } else if (isTimeRec) {
+    legAltFt[legIdx] = altFt;
+    legAltManual[legIdx] = false;
+    legAltConfirmed[legIdx] = 'time';
+  } else {
+    legAltFt[legIdx] = altFt;
+    legAltManual[legIdx] = true;
+    legAltConfirmed[legIdx] = null;
+  }
   const inp = document.getElementById(`alt-inp-${legIdx}`);
   if (inp) inp.value = altFt / 100;
   renderLegs();
@@ -1207,18 +1227,16 @@ function toggleLegPax(li) {
 function toggleRecRow(li, key, altFt) {
   const currentlySelected = legAltConfirmed[li] === key;
   if (currentlySelected) {
-    // Tap on already-selected row: toggle detail
+    // Second tap: toggle detail open/closed
     legExpanded[li] = (legExpanded[li] === key) ? null : key;
   } else {
-    // Tap on unselected row: select it, close detail
+    // First tap: select this rec, clear manual override, close detail
     legAltConfirmed[li] = key;
+    legAltManual[li] = false;
+    legAltFt[li] = altFt; // store so input box shows correct value
     legExpanded[li] = null;
-    if (altFt != null) {
-      legAltFt[li] = altFt;
-      legAltManual[li] = false;
-      const inp = document.getElementById(`alt-inp-${li}`);
-      if (inp) inp.value = altFt / 100;
-    }
+    const inp = document.getElementById(`alt-inp-${li}`);
+    if (inp) inp.value = altFt / 100;
   }
   renderLegs();
   saveSession();
@@ -1289,7 +1307,7 @@ function renderRecRow(r, label, color, legTrack, legIdx, isActiveMode, rowKey = 
     : Math.abs(r.tailwind) < 50 ? 'var(--strong)' : 'var(--severe)';
   const arrowRot = r.windDir != null ? r.windDir - legTrack + 180 : 0;
   const windStr  = r.windDir != null ? `${String(r.windDir).padStart(3,'0')}°/${r.windSpd}` : '';
-  const isSelected = legAltConfirmed[legIdx] === rowKey && !legAltManual[legIdx];
+  const isSelected = legAltConfirmed[legIdx] === rowKey;
   const isOpen = legExpanded[legIdx] === rowKey;
   const bg = isOpen ? 'rgba(0,212,184,0.05)' : isSelected ? 'rgba(0,212,184,0.08)' : 'rgba(0,0,0,0.1)';
   return `<div onclick="toggleRecRow(${legIdx??'null'}, '${rowKey}', ${r.alt})" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:${isOpen?'none':'1px solid var(--border)'};background:${bg};cursor:pointer;transition:background 0.15s">
@@ -1364,18 +1382,21 @@ function renderLegs() {
     const legDist  = (!dep.error && !arr.error) ? distNm(dep.lat, dep.lon, arr.lat, arr.lon) : 0;
     const legTrack = (!dep.error && !arr.error) ? trackDeg(dep.lat, dep.lon, arr.lat, arr.lon) : 0;
 
-    let ft = legAltFt[li];
+    // displayFt: what we show in the UI. Never mutate legAltFt here.
+    let ft = legAltFt[li] ?? null;
     const manualFt = legAltManual[li] ? ft : null;
     if (!legAltManual[li] && !dep.error && !arr.error) {
       if (cache[dep.icao] && cache[arr.icao] && legDist > 5) {
         const _cap = legPax[li] ? 25000 : 28000;
         const _rec = recommendAlts(legDist, legTrack, dep, arr, hIdx, _cap, li);
         if (_rec) {
-          const chosen = optMode === 'fuel' ? _rec.bestFuel : _rec.bestTime;
-          if (chosen) {
-            ft = chosen.alt;
-            legAltFt[li] = ft;
-          }
+          const confirmed = legAltConfirmed[li];
+          const chosen = confirmed === 'time' ? _rec.bestTime
+                       : confirmed === 'fuel' ? _rec.bestFuel
+                       : confirmed === 'best' ? _rec.bestFuel
+                       : optMode === 'fuel'   ? _rec.bestFuel
+                       : _rec.bestTime;
+          if (chosen) ft = chosen.alt;
         }
       }
     }
@@ -1510,7 +1531,7 @@ function renderLegs() {
       }
 
       // If manual alt is set, always show a row for it
-      if (manualFt != null) {
+      if (manualFt != null && manualFt !== rec.bestFuel?.alt && manualFt !== rec.bestTime?.alt) {
         const manW = avgWindLeg(dep, arr, legDist, manualFt, hIdx, li);
         const perf = pc12AtAlt(manualFt);
         if (manW && perf) {
