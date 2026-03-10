@@ -728,6 +728,7 @@ function showAltPopover(legIdx) {
     const climbDist = perf.dist;
     const cruiseDist = legDist - climbDist;
     if (cruiseDist < 0) return null;
+    if (altFt > legDist * 100 + 2000) return null;
     const cruiseTimeHr = cruiseDist / gs;
     const totalFuel = perf.fuel + cruiseTimeHr * perf.ff;
     const totalTimeMin = Math.round(((perf.time / 3600) + cruiseTimeHr) * 60);
