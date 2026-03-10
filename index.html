@@ -1406,37 +1406,39 @@ function renderLegs() {
 
     html += `<div class="leg-card">
       <div class="leg-header">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;justify-content:space-between;width:100%">
-          <div class="leg-title" style="display:flex;align-items:center;flex-wrap:nowrap;min-width:0">
-            ${dep.error
-              ? `<span style="color:var(--severe)">${dep.icao}</span>`
-              : `<span onclick="showWxPopover('${dep.icao}',this)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">${dep.icao}</span>`
-            }${dep.error ? '' : fltCatDot(dep.icao)}
-            <span class="leg-arrow">›</span>
-            ${arr.error
-              ? `<span style="color:var(--severe)">${arr.icao}</span>`
-              : `<span onclick="showWxPopover('${arr.icao}',this)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">${arr.icao}</span>`
-            }${arr.error ? '' : fltCatDot(arr.icao)}
-            ${(!dep.error && !arr.error) ? `<span style="font-size:0.75rem;color:var(--muted);font-family:'DM Mono',monospace;margin-left:8px;font-weight:400">${Math.round(legDist)} nm · ${Math.round(legTrack).toString().padStart(3,'0')}°T</span>` : ''}
+        <div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:nowrap;justify-content:space-between;width:100%">
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1">
+            <div class="leg-title" style="display:flex;align-items:center;flex-wrap:nowrap;min-width:0">
+              ${dep.error
+                ? `<span style="color:var(--severe)">${dep.icao}</span>`
+                : `<span onclick="showWxPopover('${dep.icao}',this)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">${dep.icao}</span>`
+              }${dep.error ? '' : fltCatDot(dep.icao)}
+              <span class="leg-arrow">›</span>
+              ${arr.error
+                ? `<span style="color:var(--severe)">${arr.icao}</span>`
+                : `<span onclick="showWxPopover('${arr.icao}',this)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">${arr.icao}</span>`
+              }${arr.error ? '' : fltCatDot(arr.icao)}
+            </div>
+            ${(!dep.error && !arr.error) ? `<div style="font-size:0.62rem;color:var(--muted);font-family:'DM Mono',monospace">${Math.round(legDist)} nm · ${Math.round(legTrack).toString().padStart(3,'0')}°T</div>` : ''}
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
-            <div style="display:flex;align-items:center;gap:8px">
+            <div style="display:flex;align-items:center;gap:6px">
               <button onclick="toggleLegPax(${li})" style="background:none;border:1px solid ${legPax[li]?'var(--gold)':'var(--border)'};color:${legPax[li]?'var(--gold)':'var(--muted)'};font-size:0.6rem;padding:3px 7px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap;letter-spacing:.08em">${legPax[li]?'👤 PAX':'👤 NO PAX'}</button>
-              <div style="display:flex;align-items:center;gap:4px">
-                <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:'DM Mono',monospace">Depart(Z)</span>
+              <div style="display:flex;align-items:center;gap:3px">
+                <span style="font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:'DM Mono',monospace">Dep(Z)</span>
                 <input id="dep-time-${li}" class="alt-ft-input" type="text" inputmode="numeric"
                   placeholder="HH:MM" value="${depTime||''}" maxlength="5"
-                  style="width:52px;padding:4px;font-size:0.75rem;text-align:center"
+                  style="width:48px;padding:3px 4px;font-size:0.72rem;text-align:center"
                   oninput="onLegTimeText(${li},this)" />
-                ${localTimeLabel ? `<span style="font-size:0.75rem;color:var(--muted);white-space:nowrap">${localTimeLabel}</span>` : ''}
               </div>
             </div>
-            <div style="display:flex;align-items:center;gap:4px">
-              <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:'DM Mono',monospace">Altitude</span>
+            <div style="display:flex;align-items:center;gap:3px">
+              <span style="font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:'DM Mono',monospace">Alt</span>
               <input id="alt-inp-${li}" class="alt-ft-input" type="number" value="${Math.round(ft/100)}" min="0" max="450" step="1"
                 readonly
                 onchange="onLegAltChange(${li})" onblur="onLegAltChange(${li})"
                 onclick="showAltPopover(${li})" />
+
             </div>
           </div>
         </div>
