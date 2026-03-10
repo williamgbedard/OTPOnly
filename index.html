@@ -391,6 +391,7 @@
       <button id="opt-mode-btn" onclick="toggleOptMode()" style="background:none;border:1px solid var(--teal);color:var(--teal);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">⛽ Fuel</button>
       <button onclick="showFinalize()" style="background:none;border:1px solid var(--gold);color:var(--gold);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">📋 Finalize</button>
       <button onclick="openWeatherBriefing()" style="background:none;border:1px solid var(--teal);color:var(--teal);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">🌦 Briefing</button>
+      <button onclick="openForeFlight()" style="background:none;border:1px solid var(--gold);color:var(--gold);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">✈ ForeFlight</button>
       <button onclick="clearSession()" style="background:none;border:1px solid var(--severe);color:var(--severe);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">✕ Clear</button>
       <button id="import-toggle" onclick="toggleImport()" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">
         ＋ Import schedule
@@ -1781,6 +1782,13 @@ function loadSession() {
 function clearSession() {
   try { localStorage.removeItem(LS_KEY); } catch(e) {}
   location.reload();
+}
+
+// ── Open route in ForeFlight ──────────────────────────────
+function openForeFlight() {
+  if (!route || route.length < 2) { alert('Load a route first.'); return; }
+  const stops = route.filter(w => !w.error).map(w => w.icao).join('+');
+  window.location.href = `foreflight://plan?route=${stops}`;
 }
 
 // ── Weather briefing via Weathered Strip ────────────────────
