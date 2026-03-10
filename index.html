@@ -1453,6 +1453,29 @@ function renderLegs() {
         html += renderRecRow(rec.bestFuel, '⛽ Fuel', 'var(--teal)', legTrack, li, optMode === 'fuel');
         html += renderRecRow(rec.bestTime, '⚡ Fast', 'var(--gold)', legTrack, li, optMode === 'speed');
       }
+
+      // If manual alt is set and differs from both recs, show a third row for it
+      if (legAltManual[li] && ft !== rec.bestFuel?.alt && ft !== rec.bestTime?.alt) {
+        const manW = avgWindLeg(dep, arr, legDist, ft, hIdx, li);
+        if (manW) {
+          const perf = pc12AtAlt(ft);
+          if (perf) {
+            const tw       = windComponent(manW.dir, manW.spd ?? 0, legTrack);
+            const gs       = calcGs(perf.tas, manW.dir, manW.spd ?? 0, legTrack);
+            const climbDist = perf.dist;
+            const cruiseDist = Math.max(0, legDist - climbDist);
+            const cruiseTimeHr = cruiseDist / gs;
+            const totalFuel = perf.fuel + cruiseTimeHr * perf.ff;
+            const totalTimeMin = Math.round(((perf.time / 3600) + cruiseTimeHr) * 60);
+            const manRec = {
+              alt: ft, gs: Math.round(gs), totalFuel: Math.round(totalFuel),
+              totalTimeMin, tailwind: Math.round(tw),
+              windDir: Math.round(manW.dir), windSpd: Math.round(manW.spd ?? 0)
+            };
+            html += renderRecRow(manRec, '✎ Manual', 'var(--muted)', legTrack, li, true);
+          }
+        }
+      }
     }
 
     if (isExpanded) {
