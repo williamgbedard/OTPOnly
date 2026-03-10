@@ -489,14 +489,10 @@ async function fetchWx(icao) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
     const url = `https://otponlywx.williamgbedard.workers.dev/wx?icao=${icao}${latParam}`;
-    console.log('[wx] fetching', url);
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
-    console.log('[wx] status', res.status);
-    const text = await res.text();
-    console.log('[wx] body', text);
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${text}`);
-    const data = JSON.parse(text);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
     wxCache[icao] = {
       metar:       data.metar       || null,
       taf:         data.taf         || null,
@@ -507,9 +503,8 @@ async function fetchWx(icao) {
       errorMsg: data.error || null,
     };
   } catch(e) {
-    console.error('[wx] error', e);
     wxCache[icao] = { metar: null, taf: null, loading: false, error: true,
-      errorMsg: e.name === 'AbortError' ? 'Request timed out' : e.message };
+      errorMsg: e.name === 'AbortError' ? 'Request timed out' : 'Worker unreachable — check deployment' };
   }
   const pop2 = document.getElementById('wx-popover');
   if (pop2 && pop2.dataset.icao === icao) renderWxPopoverContent(icao);
@@ -1139,12 +1134,7 @@ function toggleOptMode() {
   // Clear manual overrides so alts repopulate from new mode
   legAltSel = legAltSel.map(s => (s === 'manual') ? null : s);
   legAltFt = [];
-  const btn = document.getElementById('opt-mode-btn');
-  if (btn) {
-    btn.textContent = optMode === 'fuel' ? '⛽ Fuel' : '⚡ Speed';
-    btn.style.borderColor = optMode === 'fuel' ? 'var(--teal)' : 'var(--gold)';
-    btn.style.color = optMode === 'fuel' ? 'var(--teal)' : 'var(--gold)';
-  }
+  updateOptModeBtn();
   renderLegs();
   saveSession();
 }
@@ -1342,12 +1332,12 @@ function renderLegs() {
             ${dep.error
               ? `<span style="color:var(--severe)">${dep.icao}</span>`
               : `<span onclick="showWxPopover('${dep.icao}',this)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">${dep.icao}</span>`
-            }${(()=>{const c=fltCatColor(wxCache[dep.icao]?.fltCat);return c&&!dep.error?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${c};margin-left:4px;flex-shrink:0"></span>`:''})()}
+            }${dep.error ? '' : fltCatDot(dep.icao)}
             <span class="leg-arrow">›</span>
             ${arr.error
               ? `<span style="color:var(--severe)">${arr.icao}</span>`
               : `<span onclick="showWxPopover('${arr.icao}',this)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">${arr.icao}</span>`
-            }${(()=>{const c=fltCatColor(wxCache[arr.icao]?.fltCat);return c&&!arr.error?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${c};margin-left:4px;flex-shrink:0"></span>`:''})()}
+            }${arr.error ? '' : fltCatDot(arr.icao)}
             ${(!dep.error && !arr.error) ? `<span style="font-size:0.75rem;color:var(--muted);font-family:'DM Mono',monospace;margin-left:8px;font-weight:400">${Math.round(legDist)} nm · ${Math.round(legTrack).toString().padStart(3,'0')}°T</span>` : ''}
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
@@ -1404,50 +1394,17 @@ function renderLegs() {
       </div>
     </div>`;
 
-    // renderWindRow is defined above renderLegs
-
-    // Helper: render the wind detail rows for a given altitude
-    const renderWindDetail = (altFt) => {
-      const wDepA = getWindAtFt(dep.icao, altFt, hIdx);
-      const wArrA = getWindAtFt(arr.icao, altFt, arrHIdx);
-      const depLoadingA = !cache[dep.icao];
-      const arrLoadingA = !cache[arr.icao];
-      let detailHtml = `<div class="leg-rows">`;
-      detailHtml += renderWindRow(dep, wDepA, depLoadingA, legTrack, false);
-      if (legDist > 150) {
-        const midKeys = legMidKeys[li] || [];
-        const nIntervals = midKeys.length + 1;
-        detailHtml += `<div style="margin-left:20px;border-left:1px solid rgba(107,127,168,0.35);padding-left:0;margin-top:-1px">`;
-        midKeys.forEach((key, mi) => {
-          const midFlightHr = legDist > 0 ? (legDist * (1 - (mi + 1) / (midKeys.length + 1))) / estGs : 0;
-          const midHIdx = offsetHIdx(hIdx, estFlightHr - midFlightHr);
-          const wMid = cache[key] ? getWindAtFt(key, altFt, midHIdx) : null;
-          const midLoading = !cache[key];
-          const [mlat, mlon] = key.replace('mid:','').split(',').map(Number);
-          const distToArr = Math.round(legDist * (1 - (mi + 1) / nIntervals));
-          const midWp = { icao: `${distToArr}nm`, name: `${Math.round(mlat*10)/10}°N ${Math.round(Math.abs(mlon)*10)/10}°${mlon<0?'W':'E'}` };
-          detailHtml += renderWindRow(midWp, wMid, midLoading, legTrack, true);
-        });
-        detailHtml += `</div>`;
-        detailHtml += `<div style="border-top:1px solid var(--border)">` + renderWindRow(arr, wArrA, arrLoadingA, legTrack, false) + `</div>`;
-      } else {
-        detailHtml += renderWindRow(arr, wArrA, arrLoadingA, legTrack, false);
-      }
-      detailHtml += `</div>`;
-      return detailHtml;
-    };
-
     // Altitude recommendation banner
     if (rec) {
       const sameFuelTime = rec.bestFuel?.alt === rec.bestTime?.alt;
       if (sameFuelTime) {
         html += renderRecRow(rec.bestFuel, '⚡ Best', 'var(--teal)', legTrack, li, true, 'best');
-        if (legExpanded[li] === 'best' || legExpanded[li] === true) html += renderWindDetail(rec.bestFuel.alt);
+        if (legExpanded[li] === 'best' || legExpanded[li] === true) html += renderWindDetail(li, rec.bestFuel.alt, dep, arr, hIdx, arrHIdx, legDist, legTrack);
       } else {
         html += renderRecRow(rec.bestFuel, '⛽ Fuel', 'var(--teal)', legTrack, li, optMode === 'fuel', 'fuel');
-        if (legExpanded[li] === 'fuel') html += renderWindDetail(rec.bestFuel.alt);
+        if (legExpanded[li] === 'fuel') html += renderWindDetail(li, rec.bestFuel.alt, dep, arr, hIdx, arrHIdx, legDist, legTrack);
         html += renderRecRow(rec.bestTime, '⚡ Fast', 'var(--gold)', legTrack, li, optMode === 'speed', 'time');
-        if (legExpanded[li] === 'time') html += renderWindDetail(rec.bestTime.alt);
+        if (legExpanded[li] === 'time') html += renderWindDetail(li, rec.bestTime.alt, dep, arr, hIdx, arrHIdx, legDist, legTrack);
       }
 
       // If manual alt is set, always show a row for it
@@ -1466,7 +1423,7 @@ function renderLegs() {
             windDir: Math.round(manW.dir), windSpd: Math.round(manW.spd ?? 0)
           };
           html += renderRecRow(manRec, '✎ SEL', 'var(--white)', legTrack, li, true, 'manual');
-          if (legExpanded[li] === 'manual') html += renderWindDetail(manualFt);
+          if (legExpanded[li] === 'manual') html += renderWindDetail(li, manualFt, dep, arr, hIdx, arrHIdx, legDist, legTrack);
         }
       }
     }
@@ -1555,12 +1512,7 @@ function loadSession() {
     // Restore opt mode first so button label is right
     if (data.optMode) {
       optMode = data.optMode;
-      const btn = document.getElementById('opt-mode-btn');
-      if (btn) {
-        btn.textContent   = optMode === 'fuel' ? '⛽ Fuel' : '⚡ Speed';
-        btn.style.borderColor = optMode === 'fuel' ? 'var(--teal)' : 'var(--gold)';
-        btn.style.color       = optMode === 'fuel' ? 'var(--teal)' : 'var(--gold)';
-      }
+      updateOptModeBtn();
     }
 
     // Restore crew info
@@ -1636,8 +1588,7 @@ function showFinalize() {
     const hIdx     = timeToHourlyIdx(depTime, crewInfo.scheduleDate);
     const legDistF = Math.round(distNm(dep.lat,dep.lon,arr.lat,arr.lon));
 
-    // legAltFt[li] is always current — renderLegs writes it on every render
-    const ft  = legAltFt[li] ?? 10000;
+    const ft  = resolveLegAlt(li);
     const avg = avgWindLeg(dep, arr, legDistF, ft, hIdx, li);
     const altHft  = Math.round(ft / 100);
     const wv      = avg ? `${String(Math.round(avg.dir)).padStart(3,'0')}/${Math.round(avg.spd)}` : '';
