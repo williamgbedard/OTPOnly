@@ -458,6 +458,8 @@ let legAltSel = []; // null=auto | 'fuel'|'time'|'best'=rec selected | 'manual'=
 let legPax     = []; // true if leg has passengers (limits alt to 25000)
 let legMidKeys = []; // pre-computed midpoint cache keys per leg (avoids gcInterp in hot path)
 let crewInfo = { captain: '', fo: '', aircraft: '', date: '', dutyStart: '', dutyStop: '' }; // parsed from email
+let wxDecodedPref = false; // remember RAW/DECODE toggle across popover opens
+let dragState = null; // { legIdx, startY, currentY, dragging }
 
 // ── METAR / TAF popover ────────────────────────────────────
 function fltCatColor(cat) {
@@ -607,12 +609,12 @@ function renderWxPopoverContent(icao) {
   const pop = document.getElementById('wx-popover');
   if (!pop) return;
   const wx = wxCache[icao];
-  const decoded = pop.dataset.decoded === '1';
+  const decoded = wxDecodedPref;
 
   let inner = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
     <span style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--teal);letter-spacing:.08em">${wx?.nearest || icao}</span>
     <div style="display:flex;align-items:center;gap:6px">
-      ${wx?.metar ? `<button onclick="document.getElementById('wx-popover').dataset.decoded=document.getElementById('wx-popover').dataset.decoded==='1'?'0':'1';renderWxPopoverContent('${icao}')"
+      ${wx?.metar ? `<button onclick="wxDecodedPref=!wxDecodedPref;renderWxPopoverContent('${icao}')"
         style="background:none;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:0.58rem;padding:2px 7px;border-radius:4px;cursor:pointer;letter-spacing:.06em">
         ${decoded ? 'RAW' : 'DECODE'}</button>` : ''}
       <button onclick="closeWxPopover()" style="background:none;border:none;color:var(--muted);font-size:1rem;cursor:pointer;padding:0 4px">✕</button>
@@ -625,6 +627,8 @@ function renderWxPopoverContent(icao) {
     inner += `<div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted)">${wx.errorMsg || 'No reporting station found within 100nm'}</div>`;
   } else {
     if (wx.nearest) inner += `<div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);margin-bottom:8px">No wx for ${icao} — nearest: ${wx.nearest} · ${wx.nearestDist}nm</div>`;
+    const age = metarAge(wx.metar);
+    if (age) inner += `<div style="font-family:'DM Mono',monospace;font-size:0.52rem;color:var(--muted);margin-bottom:6px;opacity:0.7">Observed ${age}</div>`;
     if (wx.metar) {
       if (decoded) {
         inner += `<div style="margin-bottom:8px">${renderMetarDecoded(wx.metar)}</div>`;
@@ -1144,6 +1148,39 @@ function zuluToLocal(zuluTime) {
   return `${localH}:${localM} ${tz}`;
 }
 
+// ── Parse METAR observation time → age string ─────────────
+function metarAge(raw) {
+  if (!raw) return null;
+  const m = raw.match(/\b(\d{2})(\d{2})(\d{2})Z\b/);
+  if (!m) return null;
+  const now = new Date();
+  const obs = new Date(now);
+  obs.setUTCDate(parseInt(m[1]));
+  obs.setUTCHours(parseInt(m[2]), parseInt(m[3]), 0, 0);
+  // If obs day > today, it's last month
+  if (obs > now) obs.setUTCMonth(obs.getUTCMonth() - 1);
+  const ageMin = Math.round((now - obs) / 60000);
+  if (ageMin < 0 || ageMin > 720) return null;
+  if (ageMin < 60) return `${ageMin}m ago`;
+  return `${Math.floor(ageMin/60)}h ${ageMin%60}m ago`;
+}
+
+// ── Estimate arrival time (Zulu) given dep time + leg ─────────
+function estimateArrivalTime(depTime, legDistNm, ft, hIdx, dep, arr, li) {
+  if (!depTime || !dep || !arr || dep.error || arr.error) return null;
+  const perf = pc12AtAlt(ft);
+  if (!perf) return null;
+  const avg = avgWindLeg(dep, arr, legDistNm, ft, hIdx, li);
+  const gs = avg ? calcGs(perf.tas, avg.dir, avg.spd ?? 0, trackDeg(dep.lat, dep.lon, arr.lat, arr.lon)) : perf.tas;
+  const cruiseDist = Math.max(0, legDistNm - perf.dist);
+  const totalHr = (perf.time / 3600) + cruiseDist / gs;
+  const [hh, mm] = depTime.split(':').map(Number);
+  const depMin = hh * 60 + mm;
+  const arrMin = Math.round(depMin + totalHr * 60) % (24 * 60);
+  const ah = Math.floor(arrMin / 60), am = arrMin % 60;
+  return `${String(ah).padStart(2,'0')}:${String(am).padStart(2,'0')}`;
+}
+
 // Get raw wind from cached data for a pressure level at a given hourly index
 function getRawWind(data, lvl, hIdx) {
   if (!lvl.hpa) {
@@ -1369,6 +1406,67 @@ function renderWindRow(wp, w, loading, legTrack, isMid = false) {
   </div>`;
 }
 
+// ── Leg drag-to-reorder ───────────────────────────────────
+function moveLeg(fromIdx, toIdx) {
+  if (toIdx < 0 || toIdx >= route.length - 1) return;
+  // Swap all per-leg arrays
+  const swap = arr => { [arr[fromIdx], arr[toIdx]] = [arr[toIdx], arr[fromIdx]]; };
+  swap(legAltFt); swap(legAltSel); swap(legDepTime);
+  swap(legExpanded); swap(legPax); swap(legMidKeys);
+  // Rebuild route: legs share endpoints, so reorder stop list
+  // Re-derive stop list from legs order after swap
+  const stops = [route[0]];
+  for (let i = 0; i < route.length - 1; i++) stops.push(route[i + 1]);
+  // After swapping leg i and j, the arrival of leg i becomes arrival of leg j and vice versa
+  // Simplest: just swap the arrival airports
+  const arrFrom = route[fromIdx + 1];
+  const arrTo   = route[toIdx + 1];
+  route[fromIdx + 1] = arrTo;
+  route[toIdx + 1]   = arrFrom;
+  // Update route input to reflect new order
+  const input = document.getElementById('route-input');
+  if (input) input.value = route.map(r => r.icao).join(' ');
+  renderLegs();
+  saveSession();
+}
+
+function onLegDragStart(e, li) {
+  const card = e.currentTarget;
+  dragState = { li, startY: e.touches ? e.touches[0].clientY : e.clientY, card, origIdx: li };
+  card.style.opacity = '0.5';
+  card.style.transform = 'scale(0.98)';
+  card.style.zIndex = '50';
+  card.style.transition = 'none';
+}
+
+function onLegDragMove(e) {
+  if (!dragState) return;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  const dy = clientY - dragState.startY;
+  dragState.card.style.transform = `translateY(${dy}px) scale(0.98)`;
+  // Determine which leg we're hovering over
+  const cards = document.querySelectorAll('.leg-card');
+  let targetIdx = dragState.origIdx;
+  cards.forEach((c, i) => {
+    if (c === dragState.card) return;
+    const rect = c.getBoundingClientRect();
+    if (clientY > rect.top && clientY < rect.bottom) targetIdx = i;
+  });
+  dragState.targetIdx = targetIdx;
+}
+
+function onLegDragEnd(e) {
+  if (!dragState) return;
+  dragState.card.style.opacity = '';
+  dragState.card.style.transform = '';
+  dragState.card.style.zIndex = '';
+  dragState.card.style.transition = '';
+  if (dragState.targetIdx != null && dragState.targetIdx !== dragState.origIdx) {
+    moveLeg(dragState.origIdx, dragState.targetIdx);
+  }
+  dragState = null;
+}
+
 // ── Opt mode button sync ──────────────────────────────────
 function updateOptModeBtn() {
   const btn = document.getElementById('opt-mode-btn');
@@ -1501,7 +1599,9 @@ function renderLegs() {
     }
 
 
-    html += `<div class="leg-card">
+    html += `<div class="leg-card" data-li="${li}"
+      onmousedown="onLegDragStart(event,${li})" ontouchstart="onLegDragStart(event,${li})"
+      style="cursor:grab;touch-action:pan-x">
       <div class="leg-header">
         <div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:nowrap;justify-content:space-between;width:100%">
           <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1">
@@ -1564,11 +1664,32 @@ function renderLegs() {
       ? `${fmtDir(avg.dir)} / ${fmtSpd(avg.spd)} kt`
       : (depLoading||arrLoading ? '…' : '—');
     const isExpanded = !!legExpanded[li];
+
+    // HW/TW component for avg banner
+    let avgTwStr = '', avgTwColor = 'var(--muted)';
+    if (avg && avg.dir != null && avg.spd != null) {
+      const tw = windComponent(avg.dir, avg.spd, legTrack);
+      const twAmt = Math.abs(Math.round(tw));
+      const isHw = tw < 0;
+      avgTwColor = !isHw ? 'var(--calm)'
+        : twAmt < 15 ? 'var(--calm)'
+        : twAmt < 30 ? 'var(--moderate)'
+        : twAmt < 50 ? 'var(--strong)' : 'var(--severe)';
+      avgTwStr = `${isHw ? 'HW' : 'TW'} ${twAmt}kt`;
+    }
+
+    // Arrival time
+    const arrivalTime = estimateArrivalTime(depTime, legDist, ft, hIdx, dep, arr, li);
+
     html += `<div class="leg-avg">
-      <div class="avg-wind-line">
-        <span class="${twClass(avg?.dir, avg?.spd, legTrack)}">${avgWindStr}</span>
-        <span style="font-size:1.4rem;transform:rotate(${arrowRot}deg);display:inline-block;opacity:${avg?0.9:0.2};transition:transform 0.4s;line-height:1">↑</span>
-        ${avg?.gusts ? `<span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--severe);margin-left:2px">G${fmtSpd(avg.gusts)}</span>` : ''}
+      <div class="avg-wind-line" style="justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="${twClass(avg?.dir, avg?.spd, legTrack)}">${avgWindStr}</span>
+          <span style="font-size:1.4rem;transform:rotate(${arrowRot}deg);display:inline-block;opacity:${avg?0.9:0.2};transition:transform 0.4s;line-height:1">↑</span>
+          ${avg?.gusts ? `<span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--severe);margin-left:2px">G${fmtSpd(avg.gusts)}</span>` : ''}
+          ${avgTwStr ? `<span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:${avgTwColor};margin-left:2px">${avgTwStr}</span>` : ''}
+        </div>
+        ${arrivalTime ? `<div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);flex-shrink:0">ARR <span style="color:var(--white)">${arrivalTime}Z</span></div>` : ''}
       </div>
     </div>`;
 
@@ -2005,6 +2126,12 @@ async function handleGo() {
 document.getElementById('route-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') handleGo();
 });
+
+// Global drag move/end for leg reordering
+document.addEventListener('mousemove', onLegDragMove);
+document.addEventListener('touchmove', e => { if (dragState) { e.preventDefault(); onLegDragMove(e); } }, { passive: false });
+document.addEventListener('mouseup', onLegDragEnd);
+document.addEventListener('touchend', onLegDragEnd);
 
 // ── Restore session on page load ─────────────────────────
 loadSession();
