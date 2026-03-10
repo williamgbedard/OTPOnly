@@ -317,6 +317,7 @@
     padding: 5px 10px;
   }
   .leg-row.leg-row-endpoint { border-bottom: 1px solid var(--border); }
+  .leg-row.no-border-bottom { border-bottom: none !important; }
   .leg-row.leg-row-endpoint:last-child { border-bottom: none; }
   .leg-row-mid { padding: 2px 10px 2px 8px; }
   .lr-icao { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; color: var(--gold); letter-spacing: 0.08em; flex-shrink: 0; width: 52px; }
@@ -1284,7 +1285,7 @@ function renderRecRow(r, label, color, legTrack, legIdx, isActiveMode) {
 }
 
 // ── Render a single airport wind row (expanded view) ───────
-function renderWindRow(wp, w, loading, legTrack, isMid = false) {
+function renderWindRow(wp, w, loading, legTrack, isMid = false, noBottomBorder = false) {
   const spd = w?.spd ?? null;
   const dir = w?.dir ?? null;
   const rot = dir != null ? dir - legTrack + 180 : 0;
@@ -1293,7 +1294,7 @@ function renderWindRow(wp, w, loading, legTrack, isMid = false) {
 
   const icaoEl = isMidpoint
     ? `<div class="lr-icao" style="color:var(--muted);font-size:0.75rem">${wp.icao}</div>`
-    : `<div class="lr-icao" onclick="showWxPopover('${wp.icao}', this)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">${wp.icao}</div>`;
+    : `<div class="lr-icao">${wp.icao}</div>`;
 
   if (isMid) {
     const dot = `<div style="width:5px;height:5px;border-radius:50%;border:1.5px solid rgba(107,127,168,0.7);background:#0d1b34;flex-shrink:0;margin-right:6px;margin-left:-2px"></div>`;
@@ -1308,7 +1309,7 @@ function renderWindRow(wp, w, loading, legTrack, isMid = false) {
     </div>`;
   }
 
-  return `<div class="leg-row leg-row-endpoint">
+  return `<div class="leg-row leg-row-endpoint${noBottomBorder ? ' no-border-bottom' : }">
     ${icaoEl}
     <div class="lr-name">${wp.name ?? ''}</div>
     <div class="lr-wind">
@@ -1458,7 +1459,7 @@ function renderLegs() {
     if (isExpanded) {
       html += `<div class="leg-rows">`;
 
-      html += renderWindRow(dep, wDep, depLoading, legTrack, false);
+      html += renderWindRow(dep, wDep, depLoading, legTrack, false, legDist > 150);
 
       if (legDist > 150) {
         const midKeys = legMidKeys[li] || [];
