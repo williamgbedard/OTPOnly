@@ -1267,6 +1267,80 @@ function renderWindRow(wp, w, loading, legTrack, isMid = false) {
   </div>`;
 }
 
+// ── Opt mode button sync ──────────────────────────────────
+function updateOptModeBtn() {
+  const btn = document.getElementById('opt-mode-btn');
+  if (!btn) return;
+  btn.textContent       = optMode === 'fuel' ? '⛽ Fuel' : '⚡ Speed';
+  btn.style.borderColor = optMode === 'fuel' ? 'var(--teal)' : 'var(--gold)';
+  btn.style.color       = optMode === 'fuel' ? 'var(--teal)' : 'var(--gold)';
+}
+
+// ── Flight category dot for an ICAO ───────────────────────
+function fltCatDot(icao) {
+  const c = fltCatColor(wxCache[icao]?.fltCat);
+  return c ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${c};margin-left:4px;flex-shrink:0"></span>` : '';
+}
+
+// ── Resolve display altitude for a leg ────────────────────
+function resolveLegAlt(li) {
+  let ft = legAltFt[li] ?? null;
+  if (legAltSel[li] !== 'manual') {
+    const dep = route[li], arr = route[li + 1];
+    if (dep && arr && !dep.error && !arr.error && cache[dep.icao] && cache[arr.icao]) {
+      const legDist  = distNm(dep.lat, dep.lon, arr.lat, arr.lon);
+      const legTrack = trackDeg(dep.lat, dep.lon, arr.lat, arr.lon);
+      const hIdx     = timeToHourlyIdx(legDepTime[li] ?? null, crewInfo.scheduleDate);
+      const cap      = legPax[li] ? 25000 : 28000;
+      if (legDist > 5) {
+        const rec = recommendAlts(legDist, legTrack, dep, arr, hIdx, cap, li);
+        if (rec) {
+          const sel = legAltSel[li];
+          const chosen = sel === 'time' ? rec.bestTime
+                       : sel === 'fuel' ? rec.bestFuel
+                       : sel === 'best' ? rec.bestFuel
+                       : optMode === 'fuel' ? rec.bestFuel : rec.bestTime;
+          if (chosen) ft = chosen.alt;
+        }
+      }
+    }
+  }
+  return ft ?? 10000;
+}
+
+// ── Render wind detail rows for an expanded rec row ───────
+function renderWindDetail(li, altFt, dep, arr, hIdx, arrHIdx, legDist, legTrack) {
+  const estGs = 240;
+  const wDepA = getWindAtFt(dep.icao, altFt, hIdx);
+  const wArrA = getWindAtFt(arr.icao, altFt, arrHIdx);
+  const depLoadingA = !cache[dep.icao];
+  const arrLoadingA = !cache[arr.icao];
+  let html = `<div class="leg-rows">`;
+  html += renderWindRow(dep, wDepA, depLoadingA, legTrack, false);
+  if (legDist > 150) {
+    const midKeys = legMidKeys[li] || [];
+    const nIntervals = midKeys.length + 1;
+    html += `<div style="margin-left:20px;border-left:1px solid rgba(107,127,168,0.35);padding-left:0;margin-top:-1px">`;
+    midKeys.forEach((key, mi) => {
+      const estFlightHr = legDist / estGs;
+      const midFlightHr = legDist > 0 ? (legDist * (1 - (mi + 1) / (midKeys.length + 1))) / estGs : 0;
+      const midHIdx = offsetHIdx(hIdx, estFlightHr - midFlightHr);
+      const wMid = cache[key] ? getWindAtFt(key, altFt, midHIdx) : null;
+      const midLoading = !cache[key];
+      const [mlat, mlon] = key.replace('mid:','').split(',').map(Number);
+      const distToArr = Math.round(legDist * (1 - (mi + 1) / nIntervals));
+      const midWp = { icao: `${distToArr}nm`, name: `${Math.round(mlat*10)/10}°N ${Math.round(Math.abs(mlon)*10)/10}°${mlon<0?'W':'E'}` };
+      html += renderWindRow(midWp, wMid, midLoading, legTrack, true);
+    });
+    html += `</div>`;
+    html += `<div style="border-top:1px solid var(--border)">` + renderWindRow(arr, wArrA, arrLoadingA, legTrack, false) + `</div>`;
+  } else {
+    html += renderWindRow(arr, wArrA, arrLoadingA, legTrack, false);
+  }
+  html += `</div>`;
+  return html;
+}
+
 // ── Render all leg cards ───────────────────────────────────
 function renderLegs() {
   const panel = document.getElementById('wind-panel');
