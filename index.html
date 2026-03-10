@@ -1290,31 +1290,18 @@ function renderWindRow(wp, w, loading, legTrack, isMid = false) {
     ? `<div class="lr-icao" style="color:var(--muted);font-size:0.75rem">${wp.icao}</div>`
     : `<div class="lr-icao" onclick="showWxPopover('${wp.icao}', this)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">${wp.icao}</div>`;
 
-  // Tree connector — continuous vertical line with dot for midpoints, capped ends for dep/arr
-  // isDep = !isMid and first row, isArr = !isMid and last row — we use isMid flag only
-  const lineColor = 'rgba(107,127,168,0.35)';
-  const dotColor  = 'rgba(107,127,168,0.7)';
-  const tree = isMid
-    ? `<div style="display:flex;flex-direction:column;align-items:center;width:16px;flex-shrink:0;margin-right:6px;padding-left:4px">
-         <div style="width:1px;flex:1;background:${lineColor}"></div>
-         <div style="width:5px;height:5px;border-radius:50%;border:1.5px solid ${dotColor};background:transparent;flex-shrink:0;margin:1px 0"></div>
-         <div style="width:1px;flex:1;background:${lineColor}"></div>
-       </div>`
-    : `<div style="display:flex;flex-direction:column;align-items:center;width:16px;flex-shrink:0;margin-right:6px;padding-left:4px">
-         <div style="width:1px;flex:1;background:${lineColor}"></div>
-         <div style="width:7px;height:7px;border-radius:50%;background:var(--gold);flex-shrink:0;margin:1px 0"></div>
-         <div style="width:1px;flex:1;background:${lineColor}"></div>
-       </div>`;
+  // Midpoint rows get a small hollow dot aligned to the border-left line
+  const dot = isMid
+    ? `<div style="width:6px;height:6px;border-radius:50%;border:1.5px solid rgba(107,127,168,0.7);background:#0d1b34;flex-shrink:0;margin-right:8px;margin-left:-3px"></div>`
+    : ``;
 
-  return `<div class="leg-row" style="align-items:stretch;padding-left:8px">
-    ${tree}
-    <div style="display:flex;align-items:center;flex:1;min-width:0;gap:0">
-      ${icaoEl}
-      <div class="lr-name">${wp.name ?? ''}</div>
-      <div class="lr-wind">
-        <span class="${twClass(dir, spd, legTrack)}">${windStr}</span>
-        <span style="font-size:0.9rem;transform:rotate(${rot}deg);display:inline-block;opacity:${dir!=null?0.85:0.15};transition:transform 0.4s">↑</span>
-      </div>
+  return `<div class="leg-row" style="${isMid ? 'padding-left:8px' : ''}">
+    ${dot}
+    ${icaoEl}
+    <div class="lr-name">${wp.name ?? ''}</div>
+    <div class="lr-wind">
+      <span class="${twClass(dir, spd, legTrack)}">${windStr}</span>
+      <span style="font-size:0.9rem;transform:rotate(${rot}deg);display:inline-block;opacity:${dir!=null?0.85:0.15};transition:transform 0.4s">↑</span>
     </div>
   </div>`;
 }
@@ -1459,12 +1446,13 @@ function renderLegs() {
     if (isExpanded) {
       html += `<div class="leg-rows">`;
 
-      // Tree view: dep at top, midpoints indented, arr at bottom
       html += renderWindRow(dep, wDep, depLoading, legTrack, false);
 
       if (legDist > 150) {
         const midKeys = legMidKeys[li] || [];
         const nIntervals = midKeys.length + 1;
+        // Wrap midpoints in a container with a continuous left border line
+        html += `<div style="margin-left:20px;border-left:1px solid rgba(107,127,168,0.35);padding-left:0">`;
         midKeys.forEach((key, mi) => {
           const t = (mi + 1) / nIntervals;
           const distToArr = Math.round(legDist * (1 - t));
@@ -1476,6 +1464,7 @@ function renderLegs() {
           const midWp = { icao: `${distToArr}nm`, name: `${Math.round(mlat*10)/10}°N ${Math.round(Math.abs(mlon)*10)/10}°${mlon<0?'W':'E'}` };
           html += renderWindRow(midWp, wMid, midLoading, legTrack, true);
         });
+        html += `</div>`;
       }
 
       html += renderWindRow(arr, wArr, arrLoading, legTrack, false);
