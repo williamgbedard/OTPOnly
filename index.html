@@ -1279,21 +1279,35 @@ function renderRecRow(r, label, color, legTrack, legIdx, isActiveMode) {
 }
 
 // ── Render a single airport wind row (expanded view) ───────
-function renderWindRow(wp, w, loading, legTrack) {
+function renderWindRow(wp, w, loading, legTrack, isMid = false) {
   const spd = w?.spd ?? null;
   const dir = w?.dir ?? null;
   const rot = dir != null ? dir - legTrack + 180 : 0;
   const windStr = loading ? '…' : (dir != null ? `${fmtDir(dir)} / ${fmtSpd(spd)} kt` : '—');
   const isMidpoint = wp.icao.includes('nm');
+
   const icaoEl = isMidpoint
-    ? `<div class="lr-icao">${wp.icao}</div>`
+    ? `<div class="lr-icao" style="color:var(--muted);font-size:0.75rem">${wp.icao}</div>`
     : `<div class="lr-icao" onclick="showWxPopover('${wp.icao}', this)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">${wp.icao}</div>`;
-  return `<div class="leg-row">
-    ${icaoEl}
-    <div class="lr-name">${wp.name ?? ''}</div>
-    <div class="lr-wind">
-      <span class="${twClass(dir, spd, legTrack)}">${windStr}</span>
-      <span style="font-size:0.9rem;transform:rotate(${rot}deg);display:inline-block;opacity:${dir!=null?0.85:0.15};transition:transform 0.4s">↑</span>
+
+  // Tree connector
+  const tree = isMid
+    ? `<div style="display:flex;flex-direction:column;align-items:center;width:12px;flex-shrink:0;margin-right:4px;self-align:stretch">
+        <div style="width:1px;flex:1;background:var(--border)"></div>
+        <div style="width:6px;height:6px;border-radius:50%;border:1px solid var(--muted);background:transparent;flex-shrink:0"></div>
+        <div style="width:1px;flex:1;background:var(--border)"></div>
+       </div>`
+    : `<div style="width:12px;flex-shrink:0;margin-right:4px"></div>`;
+
+  return `<div class="leg-row" style="align-items:stretch">
+    ${tree}
+    <div style="display:flex;align-items:center;flex:1;min-width:0;gap:0">
+      ${icaoEl}
+      <div class="lr-name">${wp.name ?? ''}</div>
+      <div class="lr-wind">
+        <span class="${twClass(dir, spd, legTrack)}">${windStr}</span>
+        <span style="font-size:0.9rem;transform:rotate(${rot}deg);display:inline-block;opacity:${dir!=null?0.85:0.15};transition:transform 0.4s">↑</span>
+      </div>
     </div>
   </div>`;
 }
@@ -1350,24 +1364,28 @@ function renderLegs() {
         loLvl = PRESSURE_LEVELS[i]; hiLvl = PRESSURE_LEVELS[i+1]; break;
       }
     }
-    const interpNote = ft > 0 && loLvl.ft !== hiLvl.ft
-      ? `interpolated between ${fmtFt(loLvl.ft)} & ${fmtFt(hiLvl.ft)}`
-      : '';
+
 
     html += `<div class="leg-card">
       <div class="leg-header">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;justify-content:space-between">
           <div class="leg-title" style="flex:1;min-width:0;display:flex;align-items:center;flex-wrap:nowrap">
-            ${dep.error?`<span style="color:var(--severe)">${dep.icao}</span>`:dep.icao}${(()=>{const c=fltCatColor(wxCache[dep.icao]?.fltCat);return c&&!dep.error?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${c};margin-left:4px;flex-shrink:0"></span>`:''})()}
+            ${dep.error
+              ? `<span style="color:var(--severe)">${dep.icao}</span>`
+              : `<span onclick="showWxPopover('${dep.icao}',this)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">${dep.icao}</span>`
+            }${(()=>{const c=fltCatColor(wxCache[dep.icao]?.fltCat);return c&&!dep.error?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${c};margin-left:4px;flex-shrink:0"></span>`:''})()}
             <span class="leg-arrow">›</span>
-            ${arr.error?`<span style="color:var(--severe)">${arr.icao}</span>`:arr.icao}${(()=>{const c=fltCatColor(wxCache[arr.icao]?.fltCat);return c&&!arr.error?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${c};margin-left:4px;flex-shrink:0"></span>`:''})()}
+            ${arr.error
+              ? `<span style="color:var(--severe)">${arr.icao}</span>`
+              : `<span onclick="showWxPopover('${arr.icao}',this)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">${arr.icao}</span>`
+            }${(()=>{const c=fltCatColor(wxCache[arr.icao]?.fltCat);return c&&!arr.error?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${c};margin-left:4px;flex-shrink:0"></span>`:''})()}
             ${(!dep.error && !arr.error) ? `<span style="font-size:0.75rem;color:var(--muted);font-family:'DM Mono',monospace;margin-left:8px;font-weight:400">${Math.round(legDist)} nm · ${Math.round(legTrack).toString().padStart(3,'0')}°T</span>` : ''}
           </div>
           <button onclick="toggleLegPax(${li})" style="background:none;border:1px solid ${legPax[li]?'var(--gold)':'var(--border)'};color:${legPax[li]?'var(--gold)':'var(--muted)'};font-size:0.6rem;padding:3px 7px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap;letter-spacing:.08em;flex-shrink:0">${legPax[li]?'👤 PAX':'👤 NO PAX'}</button>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;width:100%;margin-top:6px;justify-content:space-between">
           <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
-            <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:'DM Mono',monospace">Depart (Z)</span>
+            <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:'DM Mono',monospace">Depart(Z)</span>
             <input id="dep-time-${li}" class="alt-ft-input" type="text" inputmode="numeric"
               placeholder="HH:MM" value="${depTime||''}" maxlength="5"
               style="width:52px;padding:4px;font-size:0.75rem;text-align:center"
@@ -1410,7 +1428,7 @@ function renderLegs() {
       : (depLoading||arrLoading ? '…' : '—');
     const isExpanded = !!legExpanded[li];
     html += `<div class="leg-avg" onclick="toggleLeg(${li})">
-      <div class="leg-avg-label"><span>${isExpanded ? `◈ Avg · ${label}${interpNote ? ' · <span style="opacity:0.6;font-size:0.48rem">'+interpNote+'</span>' : ''} · ` : ''}</span><span class="expand-hint">${isExpanded ? '▲ collapse' : '▼ details'}</span></div>
+      <div class="leg-avg-label"><span>${isExpanded ? `◈ Avg · ${label} · ` : ''}</span><span class="expand-hint">${isExpanded ? '▲ collapse' : '▼ details'}</span></div>
       <div class="avg-wind-line">
         <span class="${twClass(avg?.dir, avg?.spd, legTrack)}">${avgWindStr}</span>
         <span style="font-size:1.4rem;transform:rotate(${arrowRot}deg);display:inline-block;opacity:${avg?0.9:0.2};transition:transform 0.4s;line-height:1">↑</span>
@@ -1434,9 +1452,9 @@ function renderLegs() {
     if (isExpanded) {
       html += `<div class="leg-rows">`;
 
-      html += renderWindRow(dep, wDep, depLoading, legTrack);
+      // Tree view: dep at top, midpoints indented, arr at bottom
+      html += renderWindRow(dep, wDep, depLoading, legTrack, false);
 
-      // Midpoints along the leg (for legs > 150 nm)
       if (legDist > 150) {
         const midKeys = legMidKeys[li] || [];
         const nIntervals = midKeys.length + 1;
@@ -1449,11 +1467,11 @@ function renderLegs() {
           const midLoading = !cache[key];
           const [mlat, mlon] = key.replace('mid:','').split(',').map(Number);
           const midWp = { icao: `${distToArr}nm`, name: `${Math.round(mlat*10)/10}°N ${Math.round(Math.abs(mlon)*10)/10}°${mlon<0?'W':'E'}` };
-          html += renderWindRow(midWp, wMid, midLoading, legTrack);
+          html += renderWindRow(midWp, wMid, midLoading, legTrack, true);
         });
       }
 
-      html += renderWindRow(arr, wArr, arrLoading, legTrack);
+      html += renderWindRow(arr, wArr, arrLoading, legTrack, false);
 
       html += `</div>`;
     }
