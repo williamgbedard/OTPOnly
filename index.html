@@ -491,48 +491,17 @@ async function fetchWx(icao) {
   wxCache[icao] = { loading: true };
   try {
     const pos = airportLatLon(icao);
-    if (!pos) {
-      wxCache[icao] = { metar: null, taf: null, loading: false };
-    } else {
-      const bbox = bboxAround(pos.lat, pos.lon, 100);
-      const fbRes = await fetch(`https://aviationweather.gov/api/data/metar?bbox=${bbox}&format=json`);
-      const fbData = await fbRes.json();
-      if (Array.isArray(fbData) && fbData.length > 0) {
-        // Find exact match first, then nearest
-        const exact = fbData.find(s => s.icaoId === icao && s.rawOb);
-        if (exact) {
-          const tRes = await fetch(`https://aviationweather.gov/api/data/taf?ids=${icao}&format=json`);
-          const tData = await tRes.json();
-          wxCache[icao] = {
-            metar: exact.rawOb,
-            taf: Array.isArray(tData) ? (tData[0]?.rawTAF || null) : null,
-            fltCat: exact.fltCat || null,
-            loading: false,
-          };
-        } else {
-          const nearest = fbData
-            .filter(s => s.rawOb)
-            .map(s => ({ ...s, dist: Math.round(distNmCoord(pos.lat, pos.lon, s.lat, s.lon)) }))
-            .sort((a, b) => a.dist - b.dist)[0];
-          if (nearest) {
-            const ntRes = await fetch(`https://aviationweather.gov/api/data/taf?ids=${nearest.icaoId}&format=json`);
-            const ntData = await ntRes.json();
-            wxCache[icao] = {
-              metar: nearest.rawOb,
-              taf: Array.isArray(ntData) ? (ntData[0]?.rawTAF || null) : null,
-              fltCat: nearest.fltCat || null,
-              nearest: nearest.icaoId,
-              nearestDist: nearest.dist,
-              loading: false,
-            };
-          } else {
-            wxCache[icao] = { metar: null, taf: null, loading: false };
-          }
-        }
-      } else {
-        wxCache[icao] = { metar: null, taf: null, loading: false };
-      }
-    }
+    const latParam = pos ? `&lat=${pos.lat}&lon=${pos.lon}` : '';
+    const res = await fetch(`https://otponlywx.williamgbedard.workers.dev/wx?icao=${icao}${latParam}`);
+    const data = await res.json();
+    wxCache[icao] = {
+      metar:       data.metar       || null,
+      taf:         data.taf         || null,
+      fltCat:      data.fltCat      || null,
+      nearest:     data.nearest     || null,
+      nearestDist: data.nearestDist || null,
+      loading: false,
+    };
   } catch(e) {
     wxCache[icao] = { metar: null, taf: null, loading: false, error: true };
   }
@@ -780,6 +749,19 @@ function windComponent(windDir, windSpd, trackDeg) {
   return -windSpd * Math.cos(angle * Math.PI / 180); // negative cos = tailwind when wind behind
 }
 
+function crosswindComponent(windDir, windSpd, trackDeg) {
+  const angle = (windDir - trackDeg + 360) % 360;
+  return windSpd * Math.sin(angle * Math.PI / 180);
+}
+
+// GS accounting for crab angle: sqrt(TAS² - XW²) + HW/TW
+function calcGs(tas, windDir, windSpd, trackDeg) {
+  const tw = windComponent(windDir, windSpd, trackDeg);
+  const xw = crosswindComponent(windDir, windSpd, trackDeg);
+  const tasAdj = Math.sqrt(Math.max(0, tas * tas - xw * xw));
+  return Math.max(tasAdj + tw, 30);
+}
+
 // Colour based on tailwind component: positive = tailwind (always green), negative = headwind (by magnitude)
 const twClass = (windDir, windSpd, track) => {
   if (windDir == null || windSpd == null) return '';
@@ -809,7 +791,7 @@ function showAltPopover(legIdx) {
     if (!w) return null;
     const perf = pc12AtAlt(altFt);
     const tailwind = windComponent(w.dir, w.spd ?? 0, track);
-    const gs = Math.max(perf.tas + tailwind, 30);
+    const gs = calcGs(perf.tas, w.dir, w.spd ?? 0, track);
     const climbDist = perf.dist;
     const cruiseDist = legDist - climbDist;
     if (cruiseDist < 0) return null;
@@ -934,7 +916,7 @@ function recommendAlts(legDistNm, track, dep, arr, hIdx, maxFt = 27000, _li = nu
 
     const perf = pc12AtAlt(altFt);
     const tailwind = windComponent(w.dir, w.spd ?? 0, track);
-    const gs = Math.max(perf.tas + tailwind, 30);
+    const gs = calcGs(perf.tas, w.dir, w.spd ?? 0, track);
     const climbDist = perf.dist;
     const cruiseDist = legDistNm - climbDist;
 
