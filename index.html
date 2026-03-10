@@ -443,7 +443,6 @@ const PRESSURE_LEVELS = [
 
 // Pre-built boundary pairs for fast altitude → pressure level lookup
 // Each entry: [lo, hi] where lo.ft <= ft <= hi.ft
-const PL_BOUNDS = PRESSURE_LEVELS.slice(0, -1).map((lo, i) => [lo, PRESSURE_LEVELS[i + 1]]);
 
 // ── State ──────────────────────────────────────────────────
 let cache      = {};
@@ -454,8 +453,7 @@ let legAltFt   = [];   // per-leg altitude in feet (user typed)
 let legDepTime = [];   // per-leg departure time as "HH:MM" local string (or null = now)
 let legExpanded = []; // per-leg expanded state (bool)
 let optMode = 'fuel'; // 'fuel' or 'speed' — global optimisation preference
-let legAltManual = []; // true if user has manually overridden the altitude for this leg
-let legAltConfirmed = []; // true if user has explicitly tapped a rec row (enables detail toggle)
+let legAltSel = []; // null=auto | 'fuel'|'time'|'best'=rec selected | 'manual'=custom alt
 let legPax     = []; // true if leg has passengers (limits alt to 25000)
 let legMidKeys = []; // pre-computed midpoint cache keys per leg (avoids gcInterp in hot path)
 let crewInfo = { captain: '', fo: '', aircraft: '', date: '', dutyStart: '', dutyStop: '' }; // parsed from email
@@ -619,11 +617,6 @@ setInterval(tickClock, 1000); tickClock();
 
 // ── Helpers ────────────────────────────────────────────────
 const mpsToKts = v => v != null ? Math.round(v * 1.94384 * 10) / 10 : null;
-const cardinal  = d => {
-  if (d == null) return '—';
-  return ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"][Math.round(d/22.5)%16];
-};
-const spdClass = k => { if(k==null)return ''; if(k<15)return 'spd-calm'; if(k<30)return 'spd-moderate'; if(k<50)return 'spd-strong'; return 'spd-severe'; };
 const fmtSpd   = k => k != null ? Math.round(k) : '—';
 const fmtDir   = d => d != null ? Math.round(d) + '°' : '—';
 const fmtFt    = f => f === 0 ? 'Surface' : Math.round(f / 100) + ' hft';
@@ -893,16 +886,13 @@ function selectAltFromPopover(legIdx, altFt) {
   const isTimeRec = rec?.bestTime?.alt === altFt;
   if (isFuelRec) {
     legAltFt[legIdx] = altFt;
-    legAltManual[legIdx] = false;
-    legAltConfirmed[legIdx] = 'fuel';
+    legAltSel[legIdx] = 'fuel';
   } else if (isTimeRec) {
     legAltFt[legIdx] = altFt;
-    legAltManual[legIdx] = false;
-    legAltConfirmed[legIdx] = 'time';
+    legAltSel[legIdx] = 'time';
   } else {
     legAltFt[legIdx] = altFt;
-    legAltManual[legIdx] = true;
-    legAltConfirmed[legIdx] = null;
+    legAltSel[legIdx] = 'manual';
   }
   const inp = document.getElementById(`alt-inp-${legIdx}`);
   if (inp) inp.value = altFt / 100;
@@ -1200,7 +1190,7 @@ function parseRoute(raw) {
 function toggleOptMode() {
   optMode = optMode === 'fuel' ? 'speed' : 'fuel';
   // Clear manual overrides so alts repopulate from new mode
-  legAltManual = legAltManual.map(() => false);
+  legAltSel = legAltSel.map(s => (s === 'manual') ? null : s);
   legAltFt = [];
   const btn = document.getElementById('opt-mode-btn');
   if (btn) {
@@ -1217,7 +1207,7 @@ function toggleLegPax(li) {
   legPax[li] = !legPax[li];
   // If manual alt exceeds new cap, clear it so it repopulates
   const cap = legPax[li] ? 25000 : 28000;
-  if (legAltManual[li] && legAltFt[li] > cap) legAltManual[li] = false;
+  if (legAltSel[li] === 'manual' && legAltFt[li] > cap) legAltSel[li] = null;
   closeAltPopover();
   renderLegs();
   saveSession();
@@ -1225,35 +1215,18 @@ function toggleLegPax(li) {
 
 // ── Toggle leg expanded state ──────────────────────────────
 function toggleRecRow(li, key, altFt) {
-  const currentlySelected = legAltConfirmed[li] === key;
+  const currentlySelected = legAltSel[li] === key;
   if (currentlySelected) {
     // Second tap: toggle detail open/closed
     legExpanded[li] = (legExpanded[li] === key) ? null : key;
   } else {
     // First tap: select this rec, clear manual override, close detail
-    legAltConfirmed[li] = key;
-    legAltManual[li] = false;
+    legAltSel[li] = key;
     legAltFt[li] = altFt; // store so input box shows correct value
     legExpanded[li] = null;
     const inp = document.getElementById(`alt-inp-${li}`);
     if (inp) inp.value = altFt / 100;
   }
-  renderLegs();
-  saveSession();
-}
-
-function toggleLeg(li) {
-  legExpanded[li] = !legExpanded[li];
-  renderLegs();
-}
-
-// ── Select a recommended altitude for a leg ───────────────
-function selectRecAlt(legIdx, altFt) {
-  legAltFt[legIdx]     = altFt;
-  legAltManual[legIdx] = false;
-  // Update the input box to match
-  const inp = document.getElementById(`alt-inp-${legIdx}`);
-  if (inp) inp.value = altFt / 100;
   renderLegs();
   saveSession();
 }
@@ -1264,7 +1237,7 @@ function onLegAltChange(legIdx) {
   const val = parseInt(inp.value) * 100;  // input is hundreds, store as feet
   if (!isNaN(val) && val >= 0 && val <= 45000) {
     legAltFt[legIdx] = val;
-    legAltManual[legIdx] = true;
+    legAltSel[legIdx] = 'manual';
     renderLegs();
     saveSession();
   }
@@ -1307,7 +1280,7 @@ function renderRecRow(r, label, color, legTrack, legIdx, isActiveMode, rowKey = 
     : Math.abs(r.tailwind) < 50 ? 'var(--strong)' : 'var(--severe)';
   const arrowRot = r.windDir != null ? r.windDir - legTrack + 180 : 0;
   const windStr  = r.windDir != null ? `${String(r.windDir).padStart(3,'0')}°/${r.windSpd}` : '';
-  const isSelected = legAltConfirmed[legIdx] === rowKey;
+  const isSelected = legAltSel[legIdx] === rowKey;
   const isOpen = legExpanded[legIdx] === rowKey;
   const bg = isOpen ? 'rgba(0,212,184,0.05)' : isSelected ? 'rgba(0,212,184,0.08)' : 'rgba(0,0,0,0.1)';
   return `<div onclick="toggleRecRow(${legIdx??'null'}, '${rowKey}', ${r.alt})" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:${isOpen?'none':'1px solid var(--border)'};background:${bg};cursor:pointer;transition:background 0.15s">
@@ -1384,13 +1357,13 @@ function renderLegs() {
 
     // displayFt: what we show in the UI. Never mutate legAltFt here.
     let ft = legAltFt[li] ?? null;
-    const manualFt = legAltManual[li] ? ft : null;
-    if (!legAltManual[li] && !dep.error && !arr.error) {
+    const manualFt = legAltSel[li] === 'manual' ? ft : null;
+    if (legAltSel[li] !== 'manual' && !dep.error && !arr.error) {
       if (cache[dep.icao] && cache[arr.icao] && legDist > 5) {
         const _cap = legPax[li] ? 25000 : 28000;
         const _rec = recommendAlts(legDist, legTrack, dep, arr, hIdx, _cap, li);
         if (_rec) {
-          const confirmed = legAltConfirmed[li];
+          const confirmed = legAltSel[li];
           const chosen = confirmed === 'time' ? _rec.bestTime
                        : confirmed === 'fuel' ? _rec.bestFuel
                        : confirmed === 'best' ? _rec.bestFuel
@@ -1531,7 +1504,7 @@ function renderLegs() {
       }
 
       // If manual alt is set, always show a row for it
-      if (manualFt != null && manualFt !== rec.bestFuel?.alt && manualFt !== rec.bestTime?.alt) {
+      if (legAltSel[li] === 'manual' && manualFt !== rec.bestFuel?.alt && manualFt !== rec.bestTime?.alt) {
         const manW = avgWindLeg(dep, arr, legDist, manualFt, hIdx, li);
         const perf = pc12AtAlt(manualFt);
         if (manW && perf) {
@@ -1607,8 +1580,7 @@ function saveSession() {
     const data = {
       routeRaw:    document.getElementById('route-input').value,
       legAltFt,
-      legAltManual,
-      legAltConfirmed,
+      legAltSel,
       legDepTime,
       legPax,
       optMode,
@@ -1659,8 +1631,9 @@ function loadSession() {
 
     // Restore per-leg arrays before calling handleGo so they survive the resize
     if (Array.isArray(data.legAltFt))       legAltFt       = data.legAltFt;
-    if (Array.isArray(data.legAltManual))   legAltManual   = data.legAltManual;
-    if (Array.isArray(data.legAltConfirmed)) legAltConfirmed = data.legAltConfirmed;
+    if (Array.isArray(data.legAltSel)) legAltSel = data.legAltSel;
+    // legacy migration
+    else if (Array.isArray(data.legAltManual)) legAltSel = data.legAltManual.map((m,i) => m ? 'manual' : (data.legAltConfirmed?.[i] ?? null));
     if (Array.isArray(data.legDepTime))   legDepTime   = data.legDepTime;
     if (Array.isArray(data.legPax))       legPax       = data.legPax;
 
@@ -1888,10 +1861,10 @@ function importSchedule() {
   document.getElementById('route-input').value = stops.join(' ');
 
   route      = parseRoute(stops.join(' '));
-  legAltFt    = route.slice(0, -1).map((_, i) => legAltManual[i] ? legAltFt[i] : undefined);
-  legAltConfirmed = route.slice(0, -1).map(() => null);
+  legAltFt  = route.slice(0, -1).map((_, i) => legAltSel[i] ? legAltFt[i] : undefined);
+  legAltSel = route.slice(0, -1).map((_, i) => legAltSel[i] ?? null);
   legExpanded  = route.slice(0, -1).map((_, i) => legExpanded[i]  ?? false);
-  legAltManual  = route.slice(0, -1).map((_, i) => legAltManual[i] ?? false);
+
   legPax        = route.slice(0, -1).map((_, i) => legPax[i] ?? true);
   legMidKeys    = route.slice(0, -1).map((_, i) => legMidKeys[i] ?? []);
   legDepTime = legs.map(l => l.depTime);
@@ -1913,11 +1886,10 @@ async function handleGo() {
   const prevRoute    = route;
   route              = parseRoute(raw);
   const legs         = route.length - 1;
-  legAltFt           = Array.from({length: legs}, (_, i) => legAltManual[i] ? legAltFt[i] : undefined);
-    legAltConfirmed    = Array.from({length: legs}, () => null);
-  legDepTime         = Array.from({length: legs}, (_, i) => legDepTime[i]  ?? null);
-  legExpanded        = Array.from({length: legs}, (_, i) => legExpanded[i] ?? false);
-  legAltManual       = Array.from({length: legs}, (_, i) => legAltManual[i] ?? false);
+  legAltFt    = Array.from({length: legs}, (_, i) => legAltSel[i] ? legAltFt[i] : undefined);
+  legAltSel   = Array.from({length: legs}, (_, i) => legAltSel[i] ?? null);
+  legDepTime  = Array.from({length: legs}, (_, i) => legDepTime[i]  ?? null);
+  legExpanded = Array.from({length: legs}, (_, i) => legExpanded[i] ?? false);
   legPax             = Array.from({length: legs}, (_, i) => legPax[i] ?? true);
   legMidKeys         = Array.from({length: legs}, (_, i) => legMidKeys[i] ?? []);
 
