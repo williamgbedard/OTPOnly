@@ -488,10 +488,15 @@ async function fetchWx(icao) {
     const latParam = pos ? `&lat=${pos.lat}&lon=${pos.lon}` : '';
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(`https://otponlywx.williamgbedard.workers.dev/wx?icao=${icao}${latParam}`, { signal: controller.signal });
+    const url = `https://otponlywx.williamgbedard.workers.dev/wx?icao=${icao}${latParam}`;
+    console.log('[wx] fetching', url);
+    const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    console.log('[wx] status', res.status);
+    const text = await res.text();
+    console.log('[wx] body', text);
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${text}`);
+    const data = JSON.parse(text);
     wxCache[icao] = {
       metar:       data.metar       || null,
       taf:         data.taf         || null,
@@ -502,8 +507,9 @@ async function fetchWx(icao) {
       errorMsg: data.error || null,
     };
   } catch(e) {
+    console.error('[wx] error', e);
     wxCache[icao] = { metar: null, taf: null, loading: false, error: true,
-      errorMsg: e.name === 'AbortError' ? 'Request timed out' : 'Worker unreachable — check deployment' };
+      errorMsg: e.name === 'AbortError' ? 'Request timed out' : e.message };
   }
   const pop2 = document.getElementById('wx-popover');
   if (pop2 && pop2.dataset.icao === icao) renderWxPopoverContent(icao);
