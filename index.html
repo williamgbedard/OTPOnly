@@ -459,7 +459,6 @@ let legPax     = []; // true if leg has passengers (limits alt to 25000)
 let legMidKeys = []; // pre-computed midpoint cache keys per leg (avoids gcInterp in hot path)
 let crewInfo = { captain: '', fo: '', aircraft: '', date: '', dutyStart: '', dutyStop: '' }; // parsed from email
 let wxDecodedPref = false; // remember RAW/DECODE toggle across popover opens
-let dragState = null; // { legIdx, startY, currentY, dragging }
 
 // ── METAR / TAF popover ────────────────────────────────────
 function fltCatColor(cat) {
@@ -1406,67 +1405,6 @@ function renderWindRow(wp, w, loading, legTrack, isMid = false) {
   </div>`;
 }
 
-// ── Leg drag-to-reorder ───────────────────────────────────
-function moveLeg(fromIdx, toIdx) {
-  if (toIdx < 0 || toIdx >= route.length - 1) return;
-  // Swap all per-leg arrays
-  const swap = arr => { [arr[fromIdx], arr[toIdx]] = [arr[toIdx], arr[fromIdx]]; };
-  swap(legAltFt); swap(legAltSel); swap(legDepTime);
-  swap(legExpanded); swap(legPax); swap(legMidKeys);
-  // Rebuild route: legs share endpoints, so reorder stop list
-  // Re-derive stop list from legs order after swap
-  const stops = [route[0]];
-  for (let i = 0; i < route.length - 1; i++) stops.push(route[i + 1]);
-  // After swapping leg i and j, the arrival of leg i becomes arrival of leg j and vice versa
-  // Simplest: just swap the arrival airports
-  const arrFrom = route[fromIdx + 1];
-  const arrTo   = route[toIdx + 1];
-  route[fromIdx + 1] = arrTo;
-  route[toIdx + 1]   = arrFrom;
-  // Update route input to reflect new order
-  const input = document.getElementById('route-input');
-  if (input) input.value = route.map(r => r.icao).join(' ');
-  renderLegs();
-  saveSession();
-}
-
-function onLegDragStart(e, li) {
-  const card = e.currentTarget;
-  dragState = { li, startY: e.touches ? e.touches[0].clientY : e.clientY, card, origIdx: li };
-  card.style.opacity = '0.5';
-  card.style.transform = 'scale(0.98)';
-  card.style.zIndex = '50';
-  card.style.transition = 'none';
-}
-
-function onLegDragMove(e) {
-  if (!dragState) return;
-  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-  const dy = clientY - dragState.startY;
-  dragState.card.style.transform = `translateY(${dy}px) scale(0.98)`;
-  // Determine which leg we're hovering over
-  const cards = document.querySelectorAll('.leg-card');
-  let targetIdx = dragState.origIdx;
-  cards.forEach((c, i) => {
-    if (c === dragState.card) return;
-    const rect = c.getBoundingClientRect();
-    if (clientY > rect.top && clientY < rect.bottom) targetIdx = i;
-  });
-  dragState.targetIdx = targetIdx;
-}
-
-function onLegDragEnd(e) {
-  if (!dragState) return;
-  dragState.card.style.opacity = '';
-  dragState.card.style.transform = '';
-  dragState.card.style.zIndex = '';
-  dragState.card.style.transition = '';
-  if (dragState.targetIdx != null && dragState.targetIdx !== dragState.origIdx) {
-    moveLeg(dragState.origIdx, dragState.targetIdx);
-  }
-  dragState = null;
-}
-
 // ── Opt mode button sync ──────────────────────────────────
 function updateOptModeBtn() {
   const btn = document.getElementById('opt-mode-btn');
@@ -1599,9 +1537,7 @@ function renderLegs() {
     }
 
 
-    html += `<div class="leg-card" data-li="${li}"
-      onmousedown="onLegDragStart(event,${li})" ontouchstart="onLegDragStart(event,${li})"
-      style="cursor:grab;touch-action:pan-x">
+    html += `<div class="leg-card">
       <div class="leg-header">
         <div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:nowrap;justify-content:space-between;width:100%">
           <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1">
@@ -2127,11 +2063,6 @@ document.getElementById('route-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') handleGo();
 });
 
-// Global drag move/end for leg reordering
-document.addEventListener('mousemove', onLegDragMove);
-document.addEventListener('touchmove', e => { if (dragState) { e.preventDefault(); onLegDragMove(e); } }, { passive: false });
-document.addEventListener('mouseup', onLegDragEnd);
-document.addEventListener('touchend', onLegDragEnd);
 
 // ── Restore session on page load ─────────────────────────
 loadSession();
