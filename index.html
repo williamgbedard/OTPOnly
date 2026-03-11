@@ -28,7 +28,7 @@
     --border:     rgba(100,140,220,0.18);
   }
 
-  html, body { height: 100%; background: var(--sky-dark); color: var(--white); font-family: 'DM Sans', sans-serif; overflow-x: hidden; }
+  html, body { height: 100%; background: var(--sky-dark); color: var(--white); font-family: 'DM Mono', monospace; overflow-x: hidden; }
 
   body::before {
     content: ''; position: fixed; inset: 0;
@@ -100,7 +100,7 @@
     background: var(--teal); color: var(--sky-dark);
     border: none; border-radius: 10px;
     padding: 10px 18px;
-    font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 700;
+    font-family: 'DM Mono', monospace; font-size: 0.85rem; font-weight: 700;
     cursor: pointer; transition: background 0.2s, transform 0.1s;
     letter-spacing: 0.04em; white-space: nowrap; flex-shrink: 0;
   }
@@ -327,7 +327,7 @@
   .lr-wind-mid { font-family: 'DM Mono', monospace; font-size: 0.49rem; white-space: nowrap; flex-shrink: 0; display: flex; align-items: center; gap: 3px; }
 
   /* Leg endpoint rows container */
-  .leg-rows { overflow: hidden; }
+  .leg-rows { overflow: hidden; padding-left: 28px; }
   .leg-avg { cursor: pointer; user-select: none; }
   .leg-avg:hover { background: rgba(0,0,0,0.25); }
   .expand-hint { font-family: 'DM Mono', monospace; font-size: 0.68rem; font-weight: 700; color: var(--muted); opacity: 0.75; letter-spacing: 0.05em; margin-left: auto; }
@@ -521,6 +521,14 @@ function closeWxPopover() {
   const ov  = document.getElementById('wx-popover-overlay');
   if (pop) pop.remove();
   if (ov)  ov.remove();
+}
+
+// ── Consistent SVG wind arrow ─────────────────────────────
+function windArrow(sizePx, rotateDeg, color='currentColor', opacity=0.85, transition='transform 0.4s') {
+  const s = sizePx;
+  return `<svg width="${s}" height="${s}" viewBox="0 0 10 10" style="transform:rotate(${rotateDeg}deg);display:inline-block;vertical-align:middle;opacity:${opacity};transition:${transition};flex-shrink:0" fill="${color}">
+    <polygon points="5,1 8.5,8.5 5,6.5 1.5,8.5" />
+  </svg>`;
 }
 
 // ── METAR parser ───────────────────────────────────────────
@@ -896,7 +904,7 @@ function showAltPopover(legIdx) {
       <span style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);flex-shrink:0;white-space:nowrap">GS ${r.gs} · ${r.totalFuel}lb · ${r.totalTimeMin}m</span>
       <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;margin-left:auto">
         <span style="font-family:'DM Mono',monospace;font-size:0.65rem;color:${r.twCol};white-space:nowrap">${r.windStr}</span>
-        <span style="font-size:0.85rem;display:inline-block;transform:rotate(${r.arrowRot}deg);color:${r.twCol};line-height:1">↑</span>
+        ${windArrow(11, r.arrowRot, r.twCol, 0.85)}
         <span style="font-family:'DM Mono',monospace;font-size:0.65rem;color:${r.twCol};margin-left:2px">${r.twLabel} ${r.twAmt}kt</span>
       </div>
     </div>`).join('');
@@ -1359,14 +1367,14 @@ function renderRecRow(r, label, color, legTrack, legIdx, isActiveMode, rowKey = 
     || (sel == null && isActiveMode);
   const isOpen = legExpanded[legIdx] === rowKey;
   const bg = isOpen ? 'rgba(0,212,184,0.08)' : isSelected ? 'rgba(0,212,184,0.15)' : 'rgba(0,0,0,0.1)';
-  return `<div onclick="toggleRecRow(${legIdx??'null'}, '${rowKey}', ${r.alt})" style="display:flex;align-items:center;gap:5px;padding:4px 10px 4px 18px;border-bottom:${isOpen?'none':'1px solid var(--border)'};border-left:3px solid ${isSelected?'var(--teal)':'transparent'};background:${bg};cursor:pointer;transition:background 0.15s">
-    <span style="font-family:'DM Mono',monospace;font-size:0.55rem;color:${color};text-transform:uppercase;letter-spacing:0.1em;flex-shrink:0">${label}</span>
-    <span style="font-family:'Bebas Neue',sans-serif;font-size:0.95rem;color:${color};letter-spacing:0.05em;flex-shrink:0">${r.alt/100}</span>
-    <span style="font-family:'DM Mono',monospace;font-size:0.5rem;color:var(--muted);flex-shrink:0;white-space:nowrap">GS ${r.gs} · ${r.totalFuel}lb · ${r.totalTimeMin}m</span>
+  return `<div onclick="toggleRecRow(${legIdx??'null'}, '${rowKey}', ${r.alt})" style="display:flex;align-items:center;gap:5px;padding:3px 10px 3px 18px;border-bottom:${isOpen?'none':'1px solid var(--border)'};border-left:3px solid ${isSelected?'var(--teal)':'transparent'};background:${bg};cursor:pointer;transition:background 0.15s">
+    <span style="font-family:'DM Mono',monospace;font-size:0.48rem;color:${color};text-transform:uppercase;letter-spacing:0.1em;flex-shrink:0">${label}</span>
+    <span style="font-family:'Bebas Neue',sans-serif;font-size:0.82rem;color:${color};letter-spacing:0.05em;flex-shrink:0">${r.alt/100}</span>
+    <span style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);flex-shrink:0;white-space:nowrap">GS ${r.gs} · ${r.totalFuel}lb · ${r.totalTimeMin}m</span>
     <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;margin-left:auto">
-      <span style="font-family:'DM Mono',monospace;font-size:0.58rem;color:${twColor}">${windStr}</span>
-      <span style="font-size:0.8rem;transform:rotate(${arrowRot}deg);display:inline-block;opacity:0.85;transition:transform 0.3s;line-height:1;color:${twColor}">↑</span>
-      <span style="font-family:'DM Mono',monospace;font-size:0.58rem;color:${twColor};margin-left:1px">${twStr}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:0.5rem;color:${twColor}">${windStr}</span>
+      ${windArrow(10, arrowRot, twColor, 0.85, "transform 0.3s")}
+      <span style="font-family:'DM Mono',monospace;font-size:0.5rem;color:${twColor};margin-left:1px">${twStr}</span>
     </div>
   </div>`;
 }
@@ -1391,7 +1399,7 @@ function renderWindRow(wp, w, loading, legTrack, isMid = false) {
       <div class="lr-name-mid">${wp.name ?? ''}</div>
       <div class="lr-wind-mid">
         <span class="${twClass(dir, spd, legTrack)}">${windStr}</span>
-        <span style="font-size:0.7rem;transform:rotate(${rot}deg);display:inline-block;opacity:${dir!=null?0.85:0.15};transition:transform 0.4s">↑</span>
+        ${windArrow(10, rot, "currentColor", dir!=null?0.85:0.15)}
       </div>
     </div>`;
   }
@@ -1401,7 +1409,7 @@ function renderWindRow(wp, w, loading, legTrack, isMid = false) {
     <div class="lr-name">${wp.name ?? ''}</div>
     <div class="lr-wind">
       <span class="${twClass(dir, spd, legTrack)}">${windStr}</span>
-      <span style="font-size:0.9rem;transform:rotate(${rot}deg);display:inline-block;opacity:${dir!=null?0.85:0.15};transition:transform 0.4s">↑</span>
+      ${windArrow(12, rot, "currentColor", dir!=null?0.85:0.15)}
     </div>
   </div>`;
 }
@@ -1622,11 +1630,11 @@ function renderLegs() {
       <div class="avg-wind-line" style="justify-content:space-between">
         <div style="display:flex;align-items:center;gap:6px">
           <span class="${twClass(avg?.dir, avg?.spd, legTrack)}">${avgWindStr}</span>
-          <span style="font-size:1.4rem;transform:rotate(${arrowRot}deg);display:inline-block;opacity:${avg?0.9:0.2};transition:transform 0.4s;line-height:1">↑</span>
+          ${windArrow(14, arrowRot, "currentColor", avg?0.9:0.2)}
           ${avg?.gusts ? `<span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--severe);margin-left:2px">G${fmtSpd(avg.gusts)}</span>` : ''}
           ${avgTwStr ? `<span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:${avgTwColor};margin-left:2px">${avgTwStr}</span>` : ''}
         </div>
-        ${arrivalTime ? `<div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);flex-shrink:0">ARR <span style="color:var(--white)">${arrivalTime}Z</span></div>` : ''}
+        ${arrivalTime ? `<div style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);flex-shrink:0">ARR ${arrivalTime}Z</div>` : ''}
       </div>
     </div>`;
 
