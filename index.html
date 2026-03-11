@@ -1788,7 +1788,7 @@ function clearSession() {
 function openForeFlight() {
   if (!route || route.length < 2) { alert('Load a route first.'); return; }
   const stops = route.filter(w => !w.error).map(w => w.icao).join('+');
-  window.location.href = `foreflight://plan?route=${stops}`;
+  window.location.href = `foreflightmobile://maps/search?q=${stops}`;
 }
 
 // ── Weather briefing via Weathered Strip ────────────────────
