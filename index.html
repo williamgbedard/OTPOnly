@@ -459,7 +459,7 @@ let legAltSel = []; // null=auto | 'fuel'|'time'|'best'=rec selected | 'manual'=
 let legPax     = []; // true if leg has passengers (limits alt to 25000)
 let legMidKeys = []; // pre-computed midpoint cache keys per leg (avoids gcInterp in hot path)
 let crewInfo = { captain: '', fo: '', aircraft: '', date: '', dutyStart: '', dutyStop: '' }; // parsed from email
-let wxDecodedPref = false; // remember RAW/DECODE toggle across popover opens
+let wxDecodedPref = true; // remember RAW/DECODE toggle across popover opens
 
 // ── METAR / TAF popover ────────────────────────────────────
 function fltCatColor(cat) {
