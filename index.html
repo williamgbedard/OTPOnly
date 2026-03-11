@@ -415,7 +415,7 @@
   </div>
 
   <!-- Legend -->
-  <div class="legend">
+  <div class="legend" style="display:none">
     <div class="leg"><div class="leg-dot" style="background:var(--calm)"></div>&lt;15 kts</div>
     <div class="leg"><div class="leg-dot" style="background:var(--moderate)"></div>15–30</div>
     <div class="leg"><div class="leg-dot" style="background:var(--strong)"></div>30–50</div>
@@ -1382,13 +1382,13 @@ function renderRecRow(r, label, color, legTrack, legIdx, isActiveMode, rowKey = 
   const isOpen = legExpanded[legIdx] === rowKey;
   const bg = isOpen ? 'rgba(0,212,184,0.08)' : isSelected ? 'rgba(0,212,184,0.15)' : 'rgba(0,0,0,0.1)';
   return `<div onclick="toggleRecRow(${legIdx??'null'}, '${rowKey}', ${r.alt})" style="display:flex;align-items:center;gap:5px;padding:3px 10px 3px 18px;border-bottom:${isOpen?'none':'1px solid var(--border)'};border-left:3px solid ${isSelected?'var(--teal)':'transparent'};background:${bg};cursor:pointer;transition:background 0.15s">
-    <span style="font-family:'DM Mono',monospace;font-size:0.48rem;color:${color};text-transform:uppercase;letter-spacing:0.1em;flex-shrink:0">${label}</span>
-    <span style="font-family:'Bebas Neue',sans-serif;font-size:0.82rem;color:${color};letter-spacing:0.05em;flex-shrink:0">${r.alt/100}</span>
-    <span style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);flex-shrink:0;white-space:nowrap">GS ${r.gs} · ${r.totalFuel}lb · ${r.totalTimeMin}m</span>
+    <span style="font-family:'DM Mono',monospace;font-size:0.53rem;color:${color};text-transform:uppercase;letter-spacing:0.1em;flex-shrink:0">${label}</span>
+    <span style="font-family:'Bebas Neue',sans-serif;font-size:0.90rem;color:${color};letter-spacing:0.05em;flex-shrink:0">${r.alt/100}</span>
+    <span style="font-family:'DM Mono',monospace;font-size:0.50rem;color:var(--muted);flex-shrink:0;white-space:nowrap">GS ${r.gs} · ${r.totalFuel}lb · ${r.totalTimeMin}m</span>
     <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;margin-left:auto">
-      <span style="font-family:'DM Mono',monospace;font-size:0.5rem;color:${twColor}">${windStr}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:0.55rem;color:${twColor}">${windStr}</span>
       ${windArrow(10, arrowRot, twColor, 0.85, "transform 0.3s")}
-      <span style="font-family:'DM Mono',monospace;font-size:0.5rem;color:${twColor};margin-left:1px">${twStr}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:0.55rem;color:${twColor};margin-left:1px">${twStr}</span>
     </div>
   </div>`;
 }
@@ -1579,17 +1579,40 @@ function renderChips() {
 
 function reorderStop(fromIdx, toIdx) {
   if (fromIdx === toIdx) return;
+
+  // Build DEP-ARR keyed maps before reorder
+  const altFtMap  = {}, altSelMap = {}, depTimeMap = {}, paxMap = {}, midMap = {};
+  for (let i = 0; i < route.length - 1; i++) {
+    const key = `${route[i].icao}-${route[i+1].icao}`;
+    altFtMap[key]  = legAltFt[i];
+    altSelMap[key] = legAltSel[i];
+    depTimeMap[key] = legDepTime[i];
+    paxMap[key]    = legPax[i];
+    midMap[key]    = legMidKeys[i];
+  }
+
   // Move stop in route array
   const stop = route.splice(fromIdx, 1)[0];
   route.splice(toIdx, 0, stop);
-  // Rebuild per-leg arrays from scratch (legs changed entirely)
+
+  // Rebuild per-leg arrays using keyed maps — preserves selections
   const legs = route.length - 1;
   legAltFt    = Array(legs).fill(undefined);
   legAltSel   = Array(legs).fill(null);
   legDepTime  = Array(legs).fill(null);
-  legExpanded = Array(legs).fill(false);
   legPax      = Array(legs).fill(true);
   legMidKeys  = Array(legs).fill([]);
+  legExpanded = Array(legs).fill(false);
+
+  for (let i = 0; i < legs; i++) {
+    const key = `${route[i].icao}-${route[i+1].icao}`;
+    if (altFtMap[key]  !== undefined) legAltFt[i]  = altFtMap[key];
+    if (altSelMap[key] !== undefined) legAltSel[i] = altSelMap[key];
+    if (depTimeMap[key]) legDepTime[i] = depTimeMap[key];
+    if (paxMap[key]    !== undefined) legPax[i]    = paxMap[key];
+    if (midMap[key])                  legMidKeys[i] = midMap[key];
+  }
+
   // Update input
   const input = document.getElementById('route-input');
   if (input) input.value = route.map(r => r.icao).join(' ');
