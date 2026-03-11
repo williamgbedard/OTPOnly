@@ -132,23 +132,26 @@
 
   /* ── Route chips (waypoints) ── */
   #route-chips {
-    display: flex; gap: 6px; padding: 10px 16px 6px;
+    display: flex; gap: 4px; padding: 6px 16px 8px;
     overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
-    align-items: center;
+    align-items: center; flex-wrap: nowrap;
   }
   #route-chips::-webkit-scrollbar { display: none; }
   .wp-chip {
     flex-shrink: 0;
-    display: flex; align-items: center; gap: 5px;
-    background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px;
-    padding: 5px 10px;
-    font-family: 'DM Mono', monospace; font-size: 0.75rem; color: var(--muted);
-    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    display: flex; align-items: center; gap: 4px;
+    background: var(--card-bg);
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 9px;
+    font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--white);
+    cursor: grab; transition: all 0.15s; white-space: nowrap;
+    user-select: none;
   }
-  .wp-chip.active { background: rgba(240,192,64,0.15); border-color: var(--gold); color: var(--gold); }
-  .wp-chip.error  { background: rgba(244,67,54,0.1);  border-color: var(--severe); color: var(--severe); cursor: default; }
-  .wp-chip:not(.error):active { transform: scale(0.94); }
-  .wp-arrow { color: var(--muted); font-size: 0.8rem; flex-shrink: 0; }
+  .wp-chip.dragging { opacity: 0.4; border-style: dashed; cursor: grabbing; }
+  .wp-chip.drag-over { border-color: var(--teal); background: rgba(0,212,184,0.12); }
+  .wp-chip.error  { border-color: var(--severe); color: var(--severe); cursor: default; }
+  .wp-arrow { color: var(--muted); font-size: 0.65rem; flex-shrink: 0; }
 
   /* ── Wind panel ── */
   #wind-panel { padding: 0 12px 32px; flex: 1; }
@@ -416,6 +419,9 @@
     <div class="leg"><div class="leg-dot" style="background:var(--strong)"></div>30–50</div>
     <div class="leg"><div class="leg-dot" style="background:var(--severe)"></div>50+</div>
   </div>
+
+  <!-- Route stop chips (draggable to reorder) -->
+  <div id="route-chips"></div>
 
   <div id="wind-panel">
     <div class="status-msg"><span class="icon">✈️</span>Enter your route above<br><small>e.g. CYXL CYAC CYVZ CPV7</small></div>
@@ -1495,7 +1501,96 @@ function renderWindDetail(li, altFt, dep, arr, hIdx, arrHIdx, legDist, legTrack)
 }
 
 // ── Render all leg cards ───────────────────────────────────
+// ── Route chips with drag-to-reorder ─────────────────────
+let chipDrag = null; // { fromIdx, el }
+
+function renderChips() {
+  const container = document.getElementById('route-chips');
+  if (!container) return;
+  if (!route.length) { container.innerHTML = ''; return; }
+
+  let html = '';
+  route.forEach((wp, i) => {
+    const errCls = wp.error ? ' error' : '';
+    const dot = wxCache[wp.icao]?.fltCat
+      ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${fltCatColor(wxCache[wp.icao].fltCat)};flex-shrink:0"></span>`
+      : '';
+    html += `<span class="wp-chip${errCls}" data-idx="${i}"
+      draggable="true"
+      ontouchstart="chipTouchStart(event,${i})"
+      ontouchmove="chipTouchMove(event)"
+      ontouchend="chipTouchEnd(event)">${dot}${wp.icao}</span>`;
+    if (i < route.length - 1) html += `<span class="wp-arrow">›</span>`;
+  });
+  container.innerHTML = html;
+
+  // Mouse drag events
+  container.querySelectorAll('.wp-chip:not(.error)').forEach(el => {
+    el.addEventListener('dragstart', e => {
+      chipDrag = { fromIdx: parseInt(el.dataset.idx) };
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+    el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drag-over'); });
+    el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+    el.addEventListener('drop', e => {
+      e.preventDefault();
+      el.classList.remove('drag-over');
+      if (!chipDrag) return;
+      const toIdx = parseInt(el.dataset.idx);
+      if (toIdx !== chipDrag.fromIdx) reorderStop(chipDrag.fromIdx, toIdx);
+      chipDrag = null;
+    });
+  });
+}
+
+function reorderStop(fromIdx, toIdx) {
+  if (fromIdx === toIdx) return;
+  // Move stop in route array
+  const stop = route.splice(fromIdx, 1)[0];
+  route.splice(toIdx, 0, stop);
+  // Rebuild per-leg arrays from scratch (legs changed entirely)
+  const legs = route.length - 1;
+  legAltFt    = Array(legs).fill(undefined);
+  legAltSel   = Array(legs).fill(null);
+  legDepTime  = Array(legs).fill(null);
+  legExpanded = Array(legs).fill(false);
+  legPax      = Array(legs).fill(true);
+  legMidKeys  = Array(legs).fill([]);
+  // Update input
+  const input = document.getElementById('route-input');
+  if (input) input.value = route.map(r => r.icao).join(' ');
+  renderChips();
+  renderLegs();
+  saveSession();
+}
+
+// Touch drag for mobile
+let chipTouch = null;
+function chipTouchStart(e, idx) {
+  chipTouch = { fromIdx: idx, startX: e.touches[0].clientX };
+}
+function chipTouchMove(e) {
+  if (!chipTouch) return;
+  e.preventDefault();
+  const x = e.touches[0].clientX;
+  const els = document.querySelectorAll('#route-chips .wp-chip');
+  els.forEach(el => {
+    const rect = el.getBoundingClientRect();
+    if (x > rect.left && x < rect.right) chipTouch.toIdx = parseInt(el.dataset.idx);
+  });
+}
+function chipTouchEnd(e) {
+  if (!chipTouch) return;
+  if (chipTouch.toIdx != null && chipTouch.toIdx !== chipTouch.fromIdx) {
+    reorderStop(chipTouch.fromIdx, chipTouch.toIdx);
+  }
+  chipTouch = null;
+}
+
 function renderLegs() {
+  renderChips();
   const panel = document.getElementById('wind-panel');
 
   if (!route.length) {
