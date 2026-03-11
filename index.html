@@ -549,12 +549,18 @@ function parseMetar(raw) {
     if (windM[4]) wind += ` gusting ${parseInt(windM[4])}kt`;
   }
 
-  // Visibility
-  const visM = get(/^(\d+)(SM)?$/);
-  const visFrac = get(/^(\d+)\/(\d+)SM$/);
+  // Visibility — handle "1 1/2SM" (two tokens) and "1/2SM" and "15SM"
   let vis = null;
-  if (visM && visM[2]) vis = `${visM[1]} SM`;
-  else if (visFrac) vis = `${visFrac[1]}/${visFrac[2]} SM`;
+  for (let i = 0; i < t.length; i++) {
+    const fracNext = t[i + 1]?.match(/^(\d+)\/(\d+)SM$/);
+    if (/^\d+$/.test(t[i]) && fracNext) {
+      vis = `${t[i]} ${t[i+1]}`; break;
+    }
+    const smM = t[i].match(/^(\d+)SM$/);
+    if (smM) { vis = `${smM[1]} SM`; break; }
+    const fracM = t[i].match(/^(\d+)\/(\d+)SM$/);
+    if (fracM) { vis = `${fracM[1]}/${fracM[2]} SM`; break; }
+  }
 
   // Clouds
   const cloudTokens = t.filter(s => /^(FEW|SCT|BKN|OVC|SKC|CLR|NSC|CAVOK)\d*/.test(s));
