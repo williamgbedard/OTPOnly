@@ -387,7 +387,7 @@
     </div>
     <!-- Schedule import -->
     <div id="import-section">
-      <div style="display:flex;gap:6px;margin-top:6px;align-items:center">
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center">
       <button id="opt-mode-btn" onclick="toggleOptMode()" style="background:none;border:1px solid var(--teal);color:var(--teal);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">⛽ Fuel</button>
       <button onclick="showFinalize()" style="background:none;border:1px solid var(--gold);color:var(--gold);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">📋 Finalize</button>
       <button onclick="openWeatherBriefing()" style="background:none;border:1px solid var(--teal);color:var(--teal);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">🌦 Briefing</button>
@@ -1359,14 +1359,14 @@ function renderRecRow(r, label, color, legTrack, legIdx, isActiveMode, rowKey = 
     || (sel == null && isActiveMode);
   const isOpen = legExpanded[legIdx] === rowKey;
   const bg = isOpen ? 'rgba(0,212,184,0.08)' : isSelected ? 'rgba(0,212,184,0.15)' : 'rgba(0,0,0,0.1)';
-  return `<div onclick="toggleRecRow(${legIdx??'null'}, '${rowKey}', ${r.alt})" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:${isOpen?'none':'1px solid var(--border)'};border-left:3px solid ${isSelected?'var(--teal)':'transparent'};background:${bg};cursor:pointer;transition:background 0.15s">
-    <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:${color};text-transform:uppercase;letter-spacing:0.1em;flex-shrink:0">${label}</span>
-    <span style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${color};letter-spacing:0.05em;flex-shrink:0">${r.alt/100}</span>
-    <span style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);flex-shrink:0;white-space:nowrap">GS ${r.gs} · ${r.totalFuel}lb · ${r.totalTimeMin}m</span>
-    <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:auto">
-      <span style="font-family:'DM Mono',monospace;font-size:0.65rem;color:${twColor}">${windStr}</span>
-      <span style="font-size:0.9rem;transform:rotate(${arrowRot}deg);display:inline-block;opacity:0.85;transition:transform 0.3s;line-height:1;color:${twColor}">↑</span>
-      <span style="font-family:'DM Mono',monospace;font-size:0.65rem;color:${twColor};margin-left:2px">${twStr}</span>
+  return `<div onclick="toggleRecRow(${legIdx??'null'}, '${rowKey}', ${r.alt})" style="display:flex;align-items:center;gap:5px;padding:4px 10px 4px 18px;border-bottom:${isOpen?'none':'1px solid var(--border)'};border-left:3px solid ${isSelected?'var(--teal)':'transparent'};background:${bg};cursor:pointer;transition:background 0.15s">
+    <span style="font-family:'DM Mono',monospace;font-size:0.55rem;color:${color};text-transform:uppercase;letter-spacing:0.1em;flex-shrink:0">${label}</span>
+    <span style="font-family:'Bebas Neue',sans-serif;font-size:0.95rem;color:${color};letter-spacing:0.05em;flex-shrink:0">${r.alt/100}</span>
+    <span style="font-family:'DM Mono',monospace;font-size:0.5rem;color:var(--muted);flex-shrink:0;white-space:nowrap">GS ${r.gs} · ${r.totalFuel}lb · ${r.totalTimeMin}m</span>
+    <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;margin-left:auto">
+      <span style="font-family:'DM Mono',monospace;font-size:0.58rem;color:${twColor}">${windStr}</span>
+      <span style="font-size:0.8rem;transform:rotate(${arrowRot}deg);display:inline-block;opacity:0.85;transition:transform 0.3s;line-height:1;color:${twColor}">↑</span>
+      <span style="font-family:'DM Mono',monospace;font-size:0.58rem;color:${twColor};margin-left:1px">${twStr}</span>
     </div>
   </div>`;
 }
