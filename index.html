@@ -28,6 +28,12 @@
     --border:     rgba(100,140,220,0.18);
   }
 
+  #offline-banner {
+    display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 9000;
+    background: var(--moderate); color: #000;
+    font-family: 'DM Mono', monospace; font-size: 0.62rem; font-weight: 600;
+    text-align: center; padding: 6px; letter-spacing: .06em;
+  }
   html, body { height: 100%; background: var(--sky-dark); color: var(--white); font-family: 'DM Mono', monospace; overflow-x: hidden; }
 
   body::before {
@@ -368,6 +374,11 @@
 
   footer { text-align: center; padding: 14px; font-family: 'DM Mono', monospace; font-size: 0.58rem; color: var(--muted); opacity: 0.45; letter-spacing: 0.1em; }
 </style>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(e => console.warn('SW:', e));
+    }
+  </script>
 </head>
 <body>
 <div id="app">
@@ -2304,7 +2315,17 @@ document.getElementById('route-input').addEventListener('keydown', e => {
 
 
 // ── Restore session on page load ─────────────────────────
+// Offline detection
+function updateOfflineBanner() {
+  const banner = document.getElementById('offline-banner');
+  if (banner) banner.style.display = navigator.onLine ? 'none' : 'block';
+}
+window.addEventListener('online',  updateOfflineBanner);
+window.addEventListener('offline', updateOfflineBanner);
+updateOfflineBanner();
+
 loadSession();
 </script>
+<div id="offline-banner">⚡ OFFLINE — showing cached data</div>
 </body>
 </html>
