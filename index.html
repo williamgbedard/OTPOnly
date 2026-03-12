@@ -1605,15 +1605,18 @@ function showDeleteZone(visible) {
   if (!dz) return;
   dz.style.display = visible ? 'flex' : 'none';
   dz.classList.remove('drag-over');
-  if (visible) {
-    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
-    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
-    dz.addEventListener('drop', e => {
-      e.preventDefault();
-      showDeleteZone(false);
-      if (chipDrag != null) { removeStop(chipDrag.fromIdx); chipDrag = null; }
-    });
-  }
+}
+
+function initDeleteZone() {
+  const dz = document.getElementById('chip-delete-zone');
+  if (!dz) return;
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault();
+    showDeleteZone(false);
+    if (chipDrag != null) { removeStop(chipDrag.fromIdx); chipDrag = null; }
+  });
 }
 
 function removeStop(idx) {
@@ -2402,6 +2405,7 @@ window.addEventListener('online',  updateOfflineBanner);
 window.addEventListener('offline', updateOfflineBanner);
 updateOfflineBanner();
 
+initDeleteZone();
 loadSession();
 </script>
 <div id="offline-banner">⚡ OFFLINE — showing cached data</div>
