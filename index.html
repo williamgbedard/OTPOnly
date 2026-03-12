@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <!-- v2 - CYXL CYAC CYVZ CPV7 added -->
 <html lang="en">
@@ -1776,20 +1777,21 @@ function chipTouchEnd(e) {
   if (chipTouch.ghost) chipTouch.ghost.remove();
   if (chipTouch.el) chipTouch.el.classList.remove('dragging');
   document.querySelectorAll('#route-chips .wp-drop-zone').forEach(z => z.classList.remove('active'));
-  showDeleteZone(false);
-
   if (chipTouch.active) {
     const x = chipTouch.lastX ?? chipTouch.startX;
     const y = chipTouch.lastY ?? chipTouch.startY;
     const dz = document.getElementById('chip-delete-zone');
     const dzRect = dz?.getBoundingClientRect();
-    if (dzRect && x >= dzRect.left && x <= dzRect.right && y >= dzRect.top && y <= dzRect.bottom) {
+    showDeleteZone(false);
+    if (dzRect && dzRect.width > 0 && x >= dzRect.left && x <= dzRect.right && y >= dzRect.top && y <= dzRect.bottom) {
       removeStop(chipTouch.fromIdx);
     } else if (chipTouch.toIdx != null) {
       let toIdx = chipTouch.toIdx;
       if (toIdx > chipTouch.fromIdx) toIdx--;
       if (toIdx !== chipTouch.fromIdx) reorderStop(chipTouch.fromIdx, toIdx);
     }
+  } else {
+    showDeleteZone(false);
   }
   chipTouch = null;
 }
