@@ -158,6 +158,16 @@
   .wp-chip.drag-over { border-color: var(--teal); background: rgba(0,212,184,0.15); box-shadow: 0 0 0 2px var(--teal); transform: scale(1.05); }
   .wp-drop-zone { width: 3px; min-width: 3px; border-radius: 3px; background: var(--teal); transition: width 0.15s, min-width 0.15s; flex-shrink: 0; align-self: stretch; opacity: 0; }
   .wp-drop-zone.active { width: 18px; min-width: 18px; opacity: 1; }
+  #chip-delete-zone {
+    display: none; align-items: center; justify-content: center;
+    margin: 0 16px 4px;
+    height: 32px; border-radius: 6px;
+    border: 1.5px dashed var(--severe); color: var(--severe);
+    font-family: 'DM Mono', monospace; font-size: 0.58rem; letter-spacing: .08em;
+    transition: background 0.15s, transform 0.15s;
+    user-select: none;
+  }
+  #chip-delete-zone.drag-over { background: rgba(255,59,59,0.15); transform: scale(1.02); }
   .wp-chip.error  { border-color: var(--severe); color: var(--severe); cursor: default; }
   .wp-arrow { color: var(--muted); font-size: 0.65rem; flex-shrink: 0; }
 
@@ -434,6 +444,7 @@
   </div>
 
   <!-- Route stop chips (draggable to reorder) -->
+  <div id="chip-delete-zone">✕ DROP TO REMOVE</div>
   <div id="route-chips"></div>
 
   <div id="wind-panel">
@@ -1543,11 +1554,12 @@ function renderChips() {
     // ── Mouse / Desktop drag ──────────────────────────────
     el.addEventListener('dragstart', e => {
       chipDrag = { fromIdx: idx };
-      setTimeout(() => el.classList.add('dragging'), 0);
+      setTimeout(() => { el.classList.add('dragging'); showDeleteZone(true); }, 0);
       e.dataTransfer.effectAllowed = 'move';
     });
     el.addEventListener('dragend', () => {
       el.classList.remove('dragging');
+      showDeleteZone(false);
       container.querySelectorAll('.wp-drop-zone').forEach(z => z.classList.remove('active'));
       container.querySelectorAll('.wp-chip').forEach(c => c.classList.remove('drag-over'));
     });
@@ -1586,6 +1598,39 @@ function renderChips() {
       chipDrag = null;
     });
   });
+}
+
+function showDeleteZone(visible) {
+  const dz = document.getElementById('chip-delete-zone');
+  if (!dz) return;
+  dz.style.display = visible ? 'flex' : 'none';
+  dz.classList.remove('drag-over');
+  if (visible) {
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault();
+      showDeleteZone(false);
+      if (chipDrag != null) { removeStop(chipDrag.fromIdx); chipDrag = null; }
+    });
+  }
+}
+
+function removeStop(idx) {
+  if (route.length <= 2) return; // need at least 2 stops
+  route.splice(idx, 1);
+  const legs = route.length - 1;
+  legAltFt    = Array(legs).fill(undefined);
+  legAltSel   = Array(legs).fill(null);
+  legDepTime  = Array(legs).fill(null);
+  legExpanded = Array(legs).fill(false);
+  legPax      = Array(legs).fill(true);
+  legMidKeys  = Array(legs).fill([]);
+  const input = document.getElementById('route-input');
+  if (input) input.value = route.map(r => r.icao).join(' ');
+  renderChips();
+  renderLegs();
+  saveSession();
 }
 
 function reorderStop(fromIdx, toIdx) {
@@ -1643,11 +1688,18 @@ function chipTouchStart(e, idx) {
     el,
     startX: e.touches[0].clientX,
     startY: e.touches[0].clientY,
+    lastX: e.touches[0].clientX,
+    lastY: e.touches[0].clientY,
     toIdx: null,
     timer: setTimeout(() => {
       if (!chipTouch) return;
+      // Cancel if finger has moved significantly — user is scrolling
+      const dx = Math.abs((chipTouch.lastX ?? chipTouch.startX) - chipTouch.startX);
+      const dy = Math.abs((chipTouch.lastY ?? chipTouch.startY) - chipTouch.startY);
+      if (dx > 8 || dy > 8) { chipTouchCancel(); return; }
       chipTouch.active = true;
       el.classList.add('dragging');
+      showDeleteZone(true);
       // Clone chip as floating ghost
       const ghost = el.cloneNode(true);
       ghost.id = 'chip-ghost';
@@ -1660,7 +1712,7 @@ function chipTouchStart(e, idx) {
       chipTouch.ghost = ghost;
       chipTouch.ghostOffX = e.touches[0].clientX - rect.left;
       chipTouch.ghostOffY = e.touches[0].clientY - rect.top;
-    }, 250)
+    }, 500)
   };
 }
 
@@ -1668,13 +1720,29 @@ function chipTouchMove(e) {
   if (!chipTouch) return;
   const dx = Math.abs(e.touches[0].clientX - chipTouch.startX);
   const dy = Math.abs(e.touches[0].clientY - chipTouch.startY);
-  // Cancel if mostly vertical scroll
-  if (!chipTouch.active && dy > dx && dy > 8) { chipTouchCancel(); return; }
+
+  // Always track last position
+  chipTouch.lastX = e.touches[0].clientX;
+  chipTouch.lastY = e.touches[0].clientY;
+
+  // Cancel if mostly vertical scroll before drag activated
+  if (!chipTouch.active && (dy > 6 || dx > 6)) { chipTouchCancel(); return; }
   if (!chipTouch.active) return;
   e.preventDefault();
 
   const x = e.touches[0].clientX;
   const y = e.touches[0].clientY;
+
+  chipTouch.lastX = x;
+  chipTouch.lastY = y;
+
+  // Highlight delete zone if finger is over it
+  const dz = document.getElementById('chip-delete-zone');
+  if (dz) {
+    const dzRect = dz.getBoundingClientRect();
+    const overDz = x >= dzRect.left && x <= dzRect.right && y >= dzRect.top && y <= dzRect.bottom;
+    dz.classList.toggle('drag-over', overDz);
+  }
 
   // Move ghost
   if (chipTouch.ghost) {
@@ -1705,11 +1773,20 @@ function chipTouchEnd(e) {
   if (chipTouch.ghost) chipTouch.ghost.remove();
   if (chipTouch.el) chipTouch.el.classList.remove('dragging');
   document.querySelectorAll('#route-chips .wp-drop-zone').forEach(z => z.classList.remove('active'));
+  showDeleteZone(false);
 
-  if (chipTouch.active && chipTouch.toIdx != null) {
-    let toIdx = chipTouch.toIdx;
-    if (toIdx > chipTouch.fromIdx) toIdx--;
-    if (toIdx !== chipTouch.fromIdx) reorderStop(chipTouch.fromIdx, toIdx);
+  if (chipTouch.active) {
+    const x = chipTouch.lastX ?? chipTouch.startX;
+    const y = chipTouch.lastY ?? chipTouch.startY;
+    const dz = document.getElementById('chip-delete-zone');
+    const dzRect = dz?.getBoundingClientRect();
+    if (dzRect && x >= dzRect.left && x <= dzRect.right && y >= dzRect.top && y <= dzRect.bottom) {
+      removeStop(chipTouch.fromIdx);
+    } else if (chipTouch.toIdx != null) {
+      let toIdx = chipTouch.toIdx;
+      if (toIdx > chipTouch.fromIdx) toIdx--;
+      if (toIdx !== chipTouch.fromIdx) reorderStop(chipTouch.fromIdx, toIdx);
+    }
   }
   chipTouch = null;
 }
@@ -1719,6 +1796,7 @@ function chipTouchCancel() {
   clearTimeout(chipTouch.timer);
   if (chipTouch.ghost) chipTouch.ghost.remove();
   if (chipTouch.el) chipTouch.el.classList.remove('dragging');
+  showDeleteZone(false);
   chipTouch = null;
 }
 
