@@ -921,6 +921,7 @@ function showAltPopover(legIdx, triggerEl) {
 
   const pop = document.createElement('div');
   pop.id = 'alt-popover';
+  pop.dataset.legIdx = legIdx;
   const popW = Math.min(300, window.innerWidth - 16);
   const spaceBelow = window.innerHeight - rect.bottom - 8;
   const spaceAbove = rect.top - 8;
@@ -2024,7 +2025,25 @@ function renderLegs() {
   }
 
   const newHtml = html + summaryHtml;
-  if (panel.innerHTML !== newHtml) panel.innerHTML = newHtml;
+  if (panel.innerHTML !== newHtml) {
+    panel.innerHTML = newHtml;
+    // Re-anchor alt popover if open — trigger element was replaced by innerHTML swap
+    const openPop = document.getElementById('alt-popover');
+    if (openPop) {
+      const li = openPop.dataset.legIdx;
+      const inp = li != null ? document.getElementById(`alt-inp-${li}`) : null;
+      if (inp) {
+        const rect = inp.getBoundingClientRect();
+        const popW = parseInt(openPop.style.width);
+        const spaceBelow = window.innerHeight - rect.bottom - 8;
+        const spaceAbove = rect.top - 8;
+        const maxH = Math.min(340, Math.max(spaceBelow, spaceAbove) - 8);
+        const useAbove = spaceBelow < 160 && spaceAbove > spaceBelow;
+        openPop.style.top  = (useAbove ? rect.top - maxH - 4 : rect.bottom + 4) + 'px';
+        openPop.style.left = Math.max(8, rect.right - popW) + 'px';
+      }
+    }
+  }
 }
 
 // ── Schedule import ────────────────────────────────────────
