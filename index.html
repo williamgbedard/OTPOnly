@@ -426,6 +426,14 @@
     <div id="import-section">
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center">
       <button id="opt-mode-btn" onclick="toggleOptMode()" style="background:none;border:1px solid var(--teal);color:var(--teal);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">⛽ Fuel</button>
+      <div style="display:flex;align-items:center;gap:4px;border:1px solid var(--border);border-radius:6px;padding:3px 8px">
+        <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:.06em;white-space:nowrap">OVBR</span>
+        <input id="overburn-input" type="number" min="0" step="1" value="10"
+          inputmode="numeric"
+          style="width:36px;background:none;border:none;outline:none;color:var(--white);font-family:'DM Mono',monospace;font-size:0.65rem;text-align:center;padding:0;-moz-appearance:textfield"
+          oninput="onOverburnChange(this.value)" />
+        <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted)">%</span>
+      </div>
       <button onclick="showFinalize()" style="background:none;border:1px solid var(--gold);color:var(--gold);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">📋 Finalize</button>
       <button onclick="openWeatherBriefing()" style="background:none;border:1px solid var(--teal);color:var(--teal);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">🌦 Briefing</button>
       <button onclick="openForeFlight()" style="background:none;border:1px solid var(--gold);color:var(--gold);font-size:0.65rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace">✈ ForeFlight</button>
