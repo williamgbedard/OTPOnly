@@ -437,9 +437,7 @@
           oninput="onOverburnChange(this.value)" />
         <span style="font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--muted)">%</span>
       </div>
-      <button onclick="showFinalize()" style="background:none;border:1px solid var(--gold);color:var(--gold);font-size:0.6rem;letter-spacing:.06em;text-transform:uppercase;padding:4px 8px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap">📋 Finalize</button>
-      <button onclick="openWeatherBriefing()" style="background:none;border:1px solid var(--teal);color:var(--teal);font-size:0.6rem;letter-spacing:.06em;text-transform:uppercase;padding:4px 8px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap">🌦 Briefing</button>
-      <button onclick="openForeFlight()" style="background:none;border:1px solid var(--gold);color:var(--gold);font-size:0.6rem;letter-spacing:.06em;text-transform:uppercase;padding:4px 8px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap">✈ ForeFlight</button>
+
       <button onclick="clearSession()" style="background:none;border:1px solid var(--severe);color:var(--severe);font-size:0.6rem;letter-spacing:.06em;text-transform:uppercase;padding:4px 8px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap">✕ Clear</button>
       <button id="import-toggle" onclick="toggleImport()" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:0.6rem;letter-spacing:.06em;text-transform:uppercase;padding:4px 8px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap">
         ＋ Import schedule
@@ -2058,12 +2056,19 @@ function renderLegs() {
       const allLegs = route.length - 1;
       const partial  = legsWithData < allLegs
         ? `<span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);opacity:0.6"> ${legsWithData}/${allLegs} legs</span>` : '';
-      summaryHtml = `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;margin:10px 0 4px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:14px;backdrop-filter:blur(8px)">
-        <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase">Route Total${partial}</span>
-        <span style="display:flex;gap:20px;align-items:baseline">
-          <span style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--teal);letter-spacing:0.05em">${Math.round(totalFuelSum)}<span style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);margin-left:3px">lb</span></span>
-          <span style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--teal);letter-spacing:0.05em">${hrs}h ${String(mins).padStart(2,'0')}m</span>
-        </span>
+      summaryHtml = `<div style="margin:10px 0 4px">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:14px 14px 0 0;backdrop-filter:blur(8px)">
+          <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase">Route Total${partial}</span>
+          <span style="display:flex;gap:20px;align-items:baseline">
+            <span style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--teal);letter-spacing:0.05em">${Math.round(totalFuelSum)}<span style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);margin-left:3px">lb</span></span>
+            <span style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--teal);letter-spacing:0.05em">${hrs}h ${String(mins).padStart(2,'0')}m</span>
+          </span>
+        </div>
+        <div style="display:flex;gap:6px;padding:8px 16px;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-top:none;border-radius:0 0 14px 14px">
+          <button onclick="showFinalize()" style="flex:1;background:none;border:1px solid var(--gold);color:var(--gold);font-size:0.6rem;letter-spacing:.06em;text-transform:uppercase;padding:5px 8px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap">📋 Finalize</button>
+          <button onclick="openWeatherBriefing()" style="flex:1;background:none;border:1px solid var(--teal);color:var(--teal);font-size:0.6rem;letter-spacing:.06em;text-transform:uppercase;padding:5px 8px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap">🌦 Briefing</button>
+          <button onclick="openForeFlight()" style="flex:1;background:none;border:1px solid var(--gold);color:var(--gold);font-size:0.6rem;letter-spacing:.06em;text-transform:uppercase;padding:5px 8px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap">✈ ForeFlight</button>
+        </div>
       </div>`;
     }
   }
