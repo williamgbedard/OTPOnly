@@ -70,17 +70,19 @@
   }
 
   #app { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; }
-  #app-inner { width: 100%; max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; flex: 1; }
+  #app-inner { width: 100%; max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; flex: 1; padding-top: 58px; }
 
   /* ── Header ── */
   header {
     padding: 12px 12px 10px;
     display: flex; align-items: center; justify-content: space-between;
     border-bottom: 1px solid var(--border);
-    background: rgba(10,15,30,0.7);
+    background: rgba(10,15,30,0.95);
     backdrop-filter: blur(12px);
-    position: sticky; top: 0; z-index: 100;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
     gap: 12px;
+    max-width: 680px;
+    margin: 0 auto;
   }
   .logo { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 0.06em; line-height: 1; flex-shrink: 0; }
   .logo span { color: var(--teal); }
@@ -90,9 +92,13 @@
   /* ── Route input section ── */
   #route-section {
     padding: 10px 12px 8px;
-    background: rgba(10,15,30,0.5);
+    background: rgba(10,15,30,0.95);
     border-bottom: 1px solid var(--border);
     display: flex; flex-direction: column; gap: 10px;
+    position: sticky;
+    top: 57px; /* below header */
+    z-index: 99;
+    backdrop-filter: blur(12px);
   }
 
   .input-row { display: flex; gap: 8px; align-items: stretch; }
@@ -407,6 +413,7 @@
 <body>
 <div id="app">
 <div id="app-inner">
+  <div id="top-banner">
   <header>
     <div>
       <div class="logo">OTP<span>Only</span></div>
