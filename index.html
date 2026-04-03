@@ -16,6 +16,9 @@
 <noscript><link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"></noscript>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   html { overscroll-behavior: none; }
   body { overscroll-behavior: none; padding-bottom: env(safe-area-inset-bottom); padding-top: env(safe-area-inset-top); }
   button, input, [onclick] { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -430,7 +433,7 @@
         <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:.06em;white-space:nowrap">OVBR</span>
         <input id="overburn-input" type="number" min="0" step="1" value="10"
           inputmode="numeric"
-          style="width:36px;background:none;border:none;outline:none;color:var(--white);font-family:'DM Mono',monospace;font-size:0.65rem;text-align:center;padding:0;-moz-appearance:textfield"
+          style="width:36px;background:none;border:none;outline:none;color:var(--white);font-family:'DM Mono',monospace;font-size:0.65rem;text-align:center;padding:0;-moz-appearance:textfield;appearance:textfield"
           oninput="onOverburnChange(this.value)" />
         <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted)">%</span>
       </div>
